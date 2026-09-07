@@ -1,0 +1,268 @@
+using AILogic;
+using System.Drawing;
+using System.Diagnostics;
+using System.Windows.Forms;
+
+using var patternReady = new ManualResetEventSlim();
+Form? patternForm = null;
+var patternScreen = Screen.PrimaryScreen!.Bounds;
+var patternThread = new Thread(() =>
+{
+    patternForm = new Form { FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
+        Bounds = new Rectangle(patternScreen.Left + 100, patternScreen.Top + 100, 512, 512), TopMost = true, ShowInTaskbar = false };
+    patternForm.Paint += (_, e) =>
+    {
+        var colors = new[] { Color.Red, Color.Lime, Color.Blue, Color.Yellow, Color.Magenta, Color.Cyan, Color.White, Color.Black };
+        for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++)
+        {
+            using var brush = new SolidBrush(colors[(x + y * 3) % colors.Length]);
+            e.Graphics.FillRectangle(brush, x * 64, y * 64, 64, 64);
+        }
+        patternReady.Set();
+    };
+    System.Windows.Forms.Application.Run(patternForm);
+});
+patternThread.SetApartmentState(ApartmentState.STA);
+patternThread.Start();
+try
+{
+    if (!patternReady.Wait(5000)) throw new Exception("Pattern window did not paint");
+    Thread.Sleep(250);
+    Console.WriteLine("Pattern: creating WGC");
+    using var capture = new WindowsGraphicsCapture(patternScreen);
+    Console.WriteLine("Pattern: created WGC");
+    foreach (var box in new[] {
+        new Rectangle(patternScreen.Left + 140, patternScreen.Top + 135, 160, 160),
+        new Rectangle(patternScreen.Left + 170, patternScreen.Top + 155, 256, 256),
+        new Rectangle(patternScreen.Left + 115, patternScreen.Top + 145, 320, 320),
+        new Rectangle(patternScreen.Left + 290, patternScreen.Top + 270, 160, 160) })
+    {
+        Bitmap? actual = null;
+        var timer = Stopwatch.StartNew();
+        while (actual == null && timer.ElapsedMilliseconds < 5000) { actual = capture.Capture(box, false); Thread.Sleep(10); }
+        if (actual == null) throw new Exception("WGC pattern capture timed out");
+        using var expected = new Bitmap(box.Width, box.Height);
+        using (var graphics = Graphics.FromImage(expected)) graphics.CopyFromScreen(box.Location, Point.Empty, box.Size);
+        int mismatches = 0, samples = 0;
+        for (int y = 5; y < box.Height - 5; y += 11) for (int x = 5; x < box.Width - 5; x += 11)
+        {
+            samples++;
+            if ((actual.GetPixel(x,y).ToArgb() & 0xffffff) != (expected.GetPixel(x,y).ToArgb() & 0xffffff)) mismatches++;
+        }
+        if (mismatches != 0) { actual.Save("scratch/static-wgc.png"); expected.Save("scratch/static-gdi.png"); throw new Exception($"WGC/GDI coordinate mismatch: {mismatches}/{samples}, ROI={box}"); }
+        // The unchanged screen must still return a crop at the new ROI; no whole-monitor resizing.
+        for (int i = 0; i < 20; i++) if (capture.Capture(box, false) == null) throw new Exception("Static WGC frame dropped");
+        Console.WriteLine($"PASS WGC/GDI pixel alignment: ROI={box}, {samples} matching samples, 20 static-frame polls");
+    }
+}
+finally
+{
+    patternForm?.BeginInvoke(new Action(() => patternForm.Close()));
+    patternThread.Join(5000);
+}
+
+using var motionReady = new ManualResetEventSlim();
+Form? motionForm = null;
+int motionX = 20;
+Rectangle motionRegion = Rectangle.Empty;
+var motionThread = new Thread(() =>
+{
+    motionForm = new Form { FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
+        Bounds = new Rectangle(patternScreen.Left + 100, patternScreen.Top + 100, 512, 128), TopMost = true, ShowInTaskbar = false, BackColor = Color.Black };
+    motionForm.Paint += (_, e) => { motionRegion = motionForm.RectangleToScreen(motionForm.ClientRectangle); e.Graphics.Clear(Color.Black); e.Graphics.FillRectangle(Brushes.Red, motionX, 0, 16, 128); motionReady.Set(); };
+    using var timer = new System.Windows.Forms.Timer { Interval = 16 };
+    timer.Tick += (_, _) => { motionX = motionX >= 450 ? 20 : motionX + 4; motionForm.Refresh(); };
+    timer.Start();
+    System.Windows.Forms.Application.Run(motionForm);
+});
+motionThread.SetApartmentState(ApartmentState.STA);
+motionThread.Start();
+try
+{
+    if (!motionReady.Wait(5000)) throw new Exception("Motion pattern did not paint");
+    using var capture = new WindowsGraphicsCapture(patternScreen);
+    var roi = motionRegion;
+    Console.WriteLine($"Motion actual window: {roi}");
+    int Center(Bitmap bitmap)
+    {
+        int sum = 0, count = 0;
+        for (int x = 0; x < bitmap.Width; x++) { var c = bitmap.GetPixel(x,Math.Min(64,bitmap.Height-1)); if (c.R > 180 && c.G < 40 && c.B < 40) { sum += x; count++; } }
+        return count == 0 ? -1 : sum/count;
+    }
+    var errors = new List<int>();
+    for (int i = 0; i < 60; i++)
+    {
+        Thread.Sleep(i % 10 == 0 ? 80 : 20); // Includes inference stalls.
+        var frame = capture.Capture(roi, false);
+        if (frame == null) continue;
+        int wgcX = Center(frame);
+        using var gdi = new Bitmap(roi.Width,roi.Height);
+        using (var graphics = Graphics.FromImage(gdi)) graphics.CopyFromScreen(roi.Location, Point.Empty, roi.Size);
+        int gdiX = Center(gdi);
+        if (i < 3) Console.WriteLine($"motion debug i={i} WGC={wgcX} GDI={gdiX} logicalX={motionX}");
+        if (i == 2) { gdi.Save("scratch/motion-gdi.png"); frame.Save("scratch/motion-wgc.png"); }
+        if (wgcX >= 0 && gdiX >= 0 && Math.Abs(wgcX-gdiX) < 200) errors.Add(Math.Abs(wgcX-gdiX)); // Exclude wraparound.
+    }
+    if (errors.Count == 0) Console.WriteLine("INCONCLUSIVE moving-target test: pattern window is not visible in either GDI or WGC capture on this desktop.");
+    else if (errors.Count < 40 || errors.Max() > 32) throw new Exception($"Motion capture lag excessive: samples={errors.Count}, max={errors.DefaultIfEmpty(999).Max()}px");
+    if (errors.Count >= 40) Console.WriteLine($"PASS moving target: {errors.Count} frames, WGC/GDI delta mean={errors.Average():F1}px max={errors.Max()}px at 4px/update, including 80ms inference stalls");
+}
+finally { motionForm?.BeginInvoke(new Action(() => motionForm.Close())); motionThread.Join(5000); }
+
+foreach (var screen in Screen.AllScreens)
+{
+    for (int cycle = 0; cycle < 3; cycle++)
+    {
+        Console.WriteLine("Creating session");
+        using var capture = new WindowsGraphicsCapture(screen.Bounds);
+        Console.WriteLine("Session created");
+        var roi = new Rectangle(screen.Bounds.Left + 100, screen.Bounds.Top + 100, 160, 160);
+        Bitmap Grab(Rectangle box, bool mask)
+        {
+            var timer = Stopwatch.StartNew();
+            while (timer.ElapsedMilliseconds < 5000)
+            {
+                var bitmap = capture.Capture(box, mask);
+                if (bitmap != null) return bitmap;
+                Thread.Sleep(10);
+            }
+            throw new Exception("No WGC frames received within five seconds.");
+        }
+        var image = Grab(roi, false);
+        if (image.Width != 160 || image.Height != 160) throw new Exception("Wrong crop size");
+        image = Grab(roi, true);
+        if (image.GetPixel(20, 140).ToArgb() != Color.Black.ToArgb()) throw new Exception("Mask failed");
+        image = Grab(new Rectangle(screen.Bounds.Left - 40, screen.Bounds.Top - 40, 100, 100), false);
+        if (image.GetPixel(10, 10).ToArgb() != Color.Black.ToArgb()) throw new Exception("Padding failed");
+        Console.WriteLine($"PASS monitor={screen.DeviceName}, cycle={cycle + 1}: frame, crop resize, mask, padding");
+    }
+}
+
+
+var assembly = System.Reflection.Assembly.LoadFrom(System.IO.Path.GetFullPath("bin/x64/Debug/wgc-validated/CouldBeAimmyV2.dll"));
+var dictType = assembly.GetType("Aimmy2.Class.Dictionary", true)!;
+var state = (System.Collections.IDictionary)dictType.GetField("dropdownState")!.GetValue(null)!;
+var managerType = assembly.GetType("AILogic.CaptureManager", true)!;
+foreach (var key in new[] { "Screen Capture Method", "Scope Capture Method" })
+{
+    foreach (var method in new[] { "WGC", "GDI+" })
+    {
+        state[key] = method;
+        var manager = Activator.CreateInstance(managerType, true)!;
+        try
+        {
+            managerType.GetProperty("CaptureMethodKey")!.SetValue(manager, key);
+            managerType.GetProperty("_displayChangesPending")!.SetValue(manager, true);
+            managerType.GetMethod("HandlePendingDisplayChanges")!.Invoke(manager, null);
+            if ((bool)managerType.GetProperty("_displayChangesPending")!.GetValue(manager)!) throw new Exception("Pending change not cleared");
+            if (managerType.GetField("_dxDevice", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(manager) != null) throw new Exception("Unexpected DirectX device");
+            if (!Equals(state[key], method)) throw new Exception("Selection overwritten");
+            var result = managerType.GetMethod("CaptureAndConvertDirectX")!.Invoke(manager, new object[] { new Rectangle(0, 0, 32, 32), new float[3072], 32, false });
+            if (!Equals(result, false)) throw new Exception("DirectX fast path was not skipped");
+            Console.WriteLine($"PASS routing: {key}={method}, no DXGI initialization or selection overwrite");
+        }
+        finally { managerType.GetMethod("Dispose")!.Invoke(manager, null); }
+    }
+}
+
+
+var initialDirectory = Environment.CurrentDirectory;
+var testDirectory = System.IO.Path.GetFullPath("scratch/wgc-smoke/testdata");
+System.IO.Directory.CreateDirectory(System.IO.Path.Combine(testDirectory, "bin"));
+Environment.CurrentDirectory = testDirectory;
+try
+{
+    state["Screen Capture Method"] = "WGC";
+    state["Scope Capture Method"] = "WGC";
+    managerType.GetMethod("ValidateSavedCaptureMethods", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, null);
+    if (!Equals(state["Screen Capture Method"], "WGC") || !Equals(state["Scope Capture Method"], "WGC")) throw new Exception("Startup rejected supported WGC");
+    Console.WriteLine("PASS startup validation: supported WGC preserved for screen and scope");
+    await Task.Run(() =>
+    {
+        var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+        foreach (var key in new[] { "Screen Capture Method", "Scope Capture Method" })
+        {
+            state[key] = "WGC";
+            var manager = Activator.CreateInstance(managerType, true)!;
+            try
+            {
+                managerType.GetProperty("CaptureMethodKey")!.SetValue(manager, key);
+                var grab = managerType.GetMethod("ScreenGrab")!;
+                var roi = new Rectangle(Screen.PrimaryScreen!.Bounds.Left + 100, Screen.PrimaryScreen.Bounds.Top + 100, 160, 160);
+                var timer = Stopwatch.StartNew();
+                Bitmap? frame = null;
+                while (timer.ElapsedMilliseconds < 5000 && frame == null)
+                {
+                    frame = (Bitmap?)grab.Invoke(manager, new object[] { roi });
+                    if (!Equals(state[key], "WGC")) throw new Exception("Integrated WGC failed: see capture-error.txt");
+                    Thread.Sleep(10);
+                }
+                if (frame == null) throw new Exception("Integrated WGC timed out");
+                var sliders = (System.Collections.IDictionary)dictType.GetField("sliderSettings")!.GetValue(null)!;
+                sliders["Screen Capture Method"] = "DirectX";
+                sliders["Scope Capture Method"] = "DirectX";
+                dictType.GetField("lastLoadedConfig")!.SetValue(null, "Regression.cfg");
+                managerType.GetMethod("SaveCaptureSetting", flags)!.Invoke(manager, null);
+                using (var saved = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText("bin/configs/Regression.cfg")))
+                {
+                    if (saved.RootElement.GetProperty(key).GetString() != "WGC") throw new Exception("Stale slider capture overwrote WGC in saved profile");
+                }
+                Console.WriteLine($"PASS config roundtrip: {key}=WGC overrides stale DirectX slider value");
+                var backend = managerType.GetField("_wgc", flags)!.GetValue(manager)!;
+                Console.WriteLine($"PASS packaged CaptureManager capture on worker thread: {key}");
+                backend.GetType().GetField("_closed", flags)!.SetValue(backend, true);
+                // A closed session must fall back before attempting notifications or another initialization.
+                grab.Invoke(manager, new object[] { roi });
+                if (!Equals(state[key], "GDI+")) throw new Exception("Failure did not commit fallback");
+                timer.Restart();
+                for (int i = 0; i < 100; i++)
+                {
+                    state[key] = "WGC"; // Emulate a stale config repeatedly restoring WGC.
+                    grab.Invoke(manager, new object[] { roi });
+                    if (!Equals(state[key], "GDI+")) throw new Exception("Circuit breaker did not reset selection");
+                    if (managerType.GetField("_wgc", flags)!.GetValue(manager) != null) throw new Exception("Failed WGC recreated");
+                }
+                Console.WriteLine($"PASS failure recovery: {key}, 100 repeated requests, no recreation, {timer.ElapsedMilliseconds}ms");
+            }
+            finally { managerType.GetMethod("Dispose")!.Invoke(manager, null); }
+        }
+    });
+}
+finally { Environment.CurrentDirectory = initialDirectory; }
+
+
+using var uiReady = new ManualResetEventSlim();
+using var releaseUi = new ManualResetEventSlim();
+var uiThread = new Thread(() =>
+{
+    var app = new System.Windows.Application();
+    uiReady.Set();
+    releaseUi.Wait(TimeSpan.FromSeconds(10)); // Deliberately busy UI: do not pump dispatcher callbacks.
+    app.Dispatcher.InvokeShutdown();
+});
+uiThread.SetApartmentState(ApartmentState.STA);
+uiThread.Start();
+if (!uiReady.Wait(TimeSpan.FromSeconds(5))) throw new Exception("UI test setup failed");
+try
+{
+    var report = managerType.GetMethod("ReportCaptureFailure", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+    var timer = Stopwatch.StartNew();
+    for (int i = 0; i < 100; i++)
+        report.Invoke(null, new object[] { "Screen Capture Method", "DirectX", new Exception("Injected duplication failure") });
+    if (timer.ElapsedMilliseconds > 2000) throw new Exception("Error reporting blocked on busy UI");
+    var reports = managerType.GetField("ReportedCaptureFailures", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+    int count = (int)reports.GetType().GetProperty("Count")!.GetValue(reports)!;
+    if (count != 3) throw new Exception($"Expected 3 unique errors, got {count}");
+    Console.WriteLine($"PASS busy UI: 100 duplication errors queued only once, reporting returned in {timer.ElapsedMilliseconds}ms");
+}
+finally { releaseUi.Set(); uiThread.Join(5000); }
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,43 @@
+using var motionReady = new ManualResetEventSlim();
+Form? motionForm = null;
+int motionX = 20;
+var motionThread = new Thread(() =>
+{
+    motionForm = new Form { FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
+        Bounds = new Rectangle(patternScreen.Left + 100, patternScreen.Top + 100, 512, 128), TopMost = true, ShowInTaskbar = false, BackColor = Color.Black };
+    motionForm.Paint += (_, e) => { e.Graphics.Clear(Color.Black); e.Graphics.FillRectangle(Brushes.Red, motionX, 0, 16, 128); motionReady.Set(); };
+    using var timer = new System.Windows.Forms.Timer { Interval = 16 };
+    timer.Tick += (_, _) => { motionX = motionX >= 450 ? 20 : motionX + 4; motionForm.Refresh(); };
+    timer.Start();
+    System.Windows.Forms.Application.Run(motionForm);
+});
+motionThread.SetApartmentState(ApartmentState.STA);
+motionThread.Start();
+try
+{
+    if (!motionReady.Wait(5000)) throw new Exception("Motion pattern did not paint");
+    using var capture = new WindowsGraphicsCapture(patternScreen);
+    var roi = new Rectangle(patternScreen.Left + 100, patternScreen.Top + 100, 512, 128);
+    int Center(Bitmap bitmap)
+    {
+        int sum = 0, count = 0;
+        for (int x = 0; x < bitmap.Width; x++) { var c = bitmap.GetPixel(x,64); if (c.R > 180 && c.G < 40 && c.B < 40) { sum += x; count++; } }
+        return count == 0 ? -1 : sum/count;
+    }
+    var errors = new List<int>();
+    for (int i = 0; i < 60; i++)
+    {
+        Thread.Sleep(i % 10 == 0 ? 80 : 20); // Includes inference stalls.
+        var frame = capture.Capture(roi, false);
+        if (frame == null) continue;
+        int wgcX = Center(frame);
+        using var gdi = new Bitmap(512,128);
+        using (var graphics = Graphics.FromImage(gdi)) graphics.CopyFromScreen(roi.Location, Point.Empty, roi.Size);
+        int gdiX = Center(gdi);
+        if (wgcX >= 0 && gdiX >= 0 && Math.Abs(wgcX-gdiX) < 200) errors.Add(Math.Abs(wgcX-gdiX)); // Exclude wraparound.
+    }
+    if (errors.Count < 40 || errors.Max() > 32) throw new Exception($"Motion capture lag excessive: samples={errors.Count}, max={errors.DefaultIfEmpty(999).Max()}px");
+    Console.WriteLine($"PASS moving target: {errors.Count} frames, WGC/GDI delta mean={errors.Average():F1}px max={errors.Max()}px at 4px/update, including 80ms inference stalls");
+}
+finally { motionForm?.BeginInvoke(new Action(() => motionForm.Close())); motionThread.Join(5000); }
+

@@ -1,0 +1,12 @@
+2026-09-07T19:42:42.3415171+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: Object is currently in use elsewhere.
+   at System.Drawing.Image.get_Width()
+   at AILogic.WindowsGraphicsCapture.CaptureLatest(Rectangle bounds, Boolean thirdPersonSupport, Single[] tensor)
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport, Single[] tensor)
+   at System.Dynamic.UpdateDelegates.UpdateAndExecute4[T0,T1,T2,T3,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2, T3 arg3)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox, Single[] tensor)
+2026-09-07T20:44:23.8267501+07:00
+Screen Capture Method: DirectX
+System.NotSupportedException: HRESULT: [0x887A0004], Module: [Vortice.DXGI], ApiCode: [DXGI_ERROR_UNSUPPORTED/Unsupported], Message: [The specified device interface or feature level is not supported on this system.
+]

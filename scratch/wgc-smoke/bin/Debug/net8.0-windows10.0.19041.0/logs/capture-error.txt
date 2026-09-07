@@ -1,0 +1,92 @@
+2026-09-07T12:34:04.0272447+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:34:04.9734961+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:34:46.0411686+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:34:46.9245281+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:34:47.6603043+07:00
+Screen Capture Method: DirectX
+System.Exception: Injected duplication failure
+2026-09-07T12:38:30.2387140+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:38:31.1132957+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:38:31.8503199+07:00
+Screen Capture Method: DirectX
+System.Exception: Injected duplication failure
+2026-09-07T12:48:43.3351200+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:48:44.1360974+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:48:44.8799062+07:00
+Screen Capture Method: DirectX
+System.Exception: Injected duplication failure
+2026-09-07T12:49:48.4693552+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:49:49.2730843+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T12:49:50.0067467+07:00
+Screen Capture Method: DirectX
+System.Exception: Injected duplication failure
+2026-09-07T13:02:56.5966731+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.CaptureLatest(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T13:02:57.4196132+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.CaptureLatest(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T13:02:58.1707555+07:00
+Screen Capture Method: DirectX
+System.Exception: Injected duplication failure
+2026-09-07T13:07:25.8310539+07:00
+Screen Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.CaptureLatest(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T13:07:26.6569733+07:00
+Scope Capture Method: WGC
+System.InvalidOperationException: The WGC monitor capture session was closed.
+   at AILogic.WindowsGraphicsCapture.CaptureLatest(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.WindowsGraphicsCapture.Capture(Rectangle bounds, Boolean thirdPersonSupport)
+   at AILogic.CaptureManager.ScreenGrab(Rectangle detectionBox)
+2026-09-07T13:07:27.4015847+07:00
+Screen Capture Method: DirectX
+System.Exception: Injected duplication failure

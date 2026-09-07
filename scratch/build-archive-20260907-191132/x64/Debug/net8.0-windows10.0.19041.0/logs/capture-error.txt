@@ -1,0 +1,16 @@
+2026-09-07T12:36:09.8713922+07:00
+Screen Capture Method: DirectX
+SharpGen.Runtime.SharpGenException: HRESULT: [0x887A0004], Module: [Vortice.DXGI], ApiCode: [DXGI_ERROR_UNSUPPORTED/Unsupported], Message: [The specified device interface or feature level is not supported on this system.
+]
+   at SharpGen.Runtime.Result.ThrowFailureException()
+   at SharpGen.Runtime.Result.CheckError()
+   at Vortice.DXGI.IDXGIOutput1.DuplicateOutput(IUnknown device)
+   at AILogic.CaptureManager.InitializeDxgiDuplication(Boolean updateSettingsOnFailure)
+2026-09-07T12:39:55.4887760+07:00
+Scope Capture Method: DirectX
+System.NotSupportedException: HRESULT: [0x887A0004], Module: [Vortice.DXGI], ApiCode: [DXGI_ERROR_UNSUPPORTED/Unsupported], Message: [The specified device interface or feature level is not supported on this system.
+]
+2026-09-07T12:54:33.9607058+07:00
+Screen Capture Method: DirectX
+System.NotSupportedException: HRESULT: [0x887A0004], Module: [Vortice.DXGI], ApiCode: [DXGI_ERROR_UNSUPPORTED/Unsupported], Message: [The specified device interface or feature level is not supported on this system.
+]

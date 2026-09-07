@@ -1,0 +1,56 @@
+using var patternReady = new ManualResetEventSlim();
+Form? patternForm = null;
+var patternScreen = Screen.PrimaryScreen!.Bounds;
+var patternThread = new Thread(() =>
+{
+    patternForm = new Form { FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
+        Bounds = new Rectangle(patternScreen.Left + 100, patternScreen.Top + 100, 512, 512), TopMost = true, ShowInTaskbar = false };
+    patternForm.Paint += (_, e) =>
+    {
+        var colors = new[] { Color.Red, Color.Lime, Color.Blue, Color.Yellow, Color.Magenta, Color.Cyan, Color.White, Color.Black };
+        for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++)
+        {
+            using var brush = new SolidBrush(colors[(x + y * 3) % colors.Length]);
+            e.Graphics.FillRectangle(brush, x * 64, y * 64, 64, 64);
+        }
+        patternReady.Set();
+    };
+    System.Windows.Forms.Application.Run(patternForm);
+});
+patternThread.SetApartmentState(ApartmentState.STA);
+patternThread.Start();
+try
+{
+    if (!patternReady.Wait(5000)) throw new Exception("Pattern window did not paint");
+    Thread.Sleep(250);
+    using var capture = new WindowsGraphicsCapture(patternScreen);
+    foreach (var box in new[] {
+        new Rectangle(patternScreen.Left + 140, patternScreen.Top + 135, 160, 160),
+        new Rectangle(patternScreen.Left + 170, patternScreen.Top + 155, 256, 256),
+        new Rectangle(patternScreen.Left + 115, patternScreen.Top + 145, 320, 320),
+        new Rectangle(patternScreen.Left + 290, patternScreen.Top + 270, 160, 160) })
+    {
+        Bitmap? actual = null;
+        var timer = Stopwatch.StartNew();
+        while (actual == null && timer.ElapsedMilliseconds < 5000) { actual = capture.Capture(box, false); Thread.Sleep(10); }
+        if (actual == null) throw new Exception("WGC pattern capture timed out");
+        using var expected = new Bitmap(box.Width, box.Height);
+        using (var graphics = Graphics.FromImage(expected)) graphics.CopyFromScreen(box.Location, Point.Empty, box.Size);
+        int mismatches = 0, samples = 0;
+        for (int y = 5; y < box.Height - 5; y += 11) for (int x = 5; x < box.Width - 5; x += 11)
+        {
+            samples++;
+            if ((actual.GetPixel(x,y).ToArgb() & 0xffffff) != (expected.GetPixel(x,y).ToArgb() & 0xffffff)) mismatches++;
+        }
+        if (mismatches != 0) throw new Exception($"WGC/GDI coordinate mismatch: {mismatches}/{samples}, ROI={box}");
+        // The unchanged screen must still return a crop at the new ROI; no whole-monitor resizing.
+        for (int i = 0; i < 20; i++) if (capture.Capture(box, false) == null) throw new Exception("Static WGC frame dropped");
+        Console.WriteLine($"PASS WGC/GDI pixel alignment: ROI={box}, {samples} matching samples, 20 static-frame polls");
+    }
+}
+finally
+{
+    patternForm?.BeginInvoke(new Action(() => patternForm.Close()));
+    patternThread.Join(5000);
+}
+

@@ -1,0 +1,72 @@
+<Window x:Class="Visuality.DetectedScopeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Detected Scope"
+        Width="140"
+
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False" ShowActivated="False"
+        ResizeMode="NoResize"
+        IsHitTestVisible="False">
+    <Grid>
+        <Border Background="#22000000" 
+                BorderBrush="#FF722ED1" 
+                BorderThickness="1" 
+                CornerRadius="3"
+                Padding="4">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                    <TextBlock Text="Slot 1: " 
+                               Foreground="#FFAAAAAA" 
+                               FontSize="9"
+                               Width="35"/>
+                    <TextBlock x:Name="Slot1Text"
+                               Text="None"
+                               Foreground="#FF00FF00"
+                               FontSize="9"
+                               FontWeight="Bold"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                    <TextBlock Text="Slot 2: " 
+                               Foreground="#FFAAAAAA" 
+                               FontSize="9"
+                               Width="35"/>
+                    <TextBlock x:Name="Slot2Text"
+                               Text="None"
+                               Foreground="#FF00FF00"
+                               FontSize="9"
+                               FontWeight="Bold"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                    <TextBlock Text="Active: " 
+                               Foreground="#FFAAAAAA" 
+                               FontSize="9"
+                               Width="35"/>
+                    <TextBlock x:Name="ActiveSlotText"
+                               Text="Slot 1"
+                               Foreground="#FFFFFF00"
+                               FontSize="9"
+                               FontWeight="Bold"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                    <TextBlock Text="Adjust: " 
+                               Foreground="#FFAAAAAA" 
+                               FontSize="9"
+                               Width="35"/>
+                    <TextBlock x:Name="RecoilAdjText"
+                               Text="0"
+                               Foreground="#FFFF00FF"
+                               FontSize="9"
+                               FontWeight="Bold"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
