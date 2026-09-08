@@ -1,0 +1,34 @@
+# Build output remains on disk; runtime assets are preserved separately.
+.vs/
+**/obj/
+**/bin/
+**/Debug/
+**/Release/
+**/build/
+artifacts/
+TestResults/
+*.user
+*.suo
+*.pdb
+*.cache
+*.tmp
+scratch/
+!native/
+!runtimes/
+!runtime-data/
+
+# Runtime models/configuration are inputs, not compiler output.
+!/bin/
+/bin/*
+!/bin/Build/
+/bin/Build/*
+!/bin/Build/bin/
+!/bin/Build/bin/**
+!/bin/Build/ddxoft.dll
+/bin/Build/bin/images/
+/bin/Build/bin/labels/
+/bin/Build/bin/scope_models/SCOPE_TMP/
+*.bak
+*.log
+debug.txt
+reports/ddxoft-backup/
