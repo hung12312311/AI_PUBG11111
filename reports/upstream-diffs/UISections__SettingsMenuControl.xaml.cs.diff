@@ -1,0 +1,666 @@
+--- Custom/UISections/SettingsMenuControl.xaml.cs
+
++++ Upstream/UISections/SettingsMenuControl.xaml.cs
+
+@@ -1,11 +1,6 @@
+
+ using Aimmy2.AILogic;
+-using AILogic;
+ using Aimmy2.Class;
+-using Aimmy2.MouseMovementLibraries.GHubSupport;
+ using Aimmy2.UILibrary;
+-using MouseMovementLibraries.ddxoftSupport;
+-using MouseMovementLibraries.RazerSupport;
+ using Other;
+-using Class;
+ using System.Windows;
+ using System.Windows.Controls;
+@@ -20,11 +15,10 @@
+
+         private MainWindow? _mainWindow;
+         private bool _isInitialized;
++        private bool _suppressImageSizeSelectionChanged;
+ 
+         // Local minimize state management
+         private readonly Dictionary<string, bool> _localMinimizeState = new()
+         {
+-            { "Model AI (Slot 1)", false },
+-            { "Model AI (Slot 2)", false },
+-            { "Model Settings General", false },
++            { "Model Settings", false },
+             { "Settings Menu", false },
+             { "Theme Settings", false },
+@@ -33,7 +27,5 @@
+
+ 
+         // Public properties for MainWindow access
+-        public StackPanel ModelSettingsSlot1Panel => ModelSettingsSlot1;
+-        public StackPanel ModelSettingsSlot2Panel => ModelSettingsSlot2;
+-        public StackPanel ModelSettingsGeneralPanel => ModelSettingsGeneral;
++        public StackPanel ModelSettingsPanel => ModelSettings;
+         public StackPanel SettingsConfigPanel => SettingsConfig;
+         public StackPanel ThemeMenuPanel => ThemeMenu;
+@@ -50,45 +42,30 @@
+
+             if (_isInitialized) return;
+ 
+-            try 
+-            {
+-                _mainWindow = mainWindow;
+-                _isInitialized = true;
+-
+-                // Load minimize states from global dictionary if they exist
+-                LoadMinimizeStatesFromGlobal();
+-
+-                LoadModelSettings();
+-                LoadSettingsConfig();
+-                LoadThemeMenu();
+-                LoadDisplaySelectMenu();
+-
+-                // Apply minimize states after loading
+-                ApplyMinimizeStates();
+-                
+-                // Subscribe to display changes
+-                DisplayManager.DisplayChanged += OnDisplayChanged;
+-
+-                // Subscribe to AI class updates for Target Class dropdown
+-                AIManager.ClassesUpdated += OnClassesChanged;
+-
+-                // Subscribe to dynamic model status changes
+-                AIManager.DynamicModelStatusChanged += OnDynamicModelStatusChanged;
+-
+-                // Set visibility based on current model status (handles case where model loaded before panel opened)
+-                UpdateDynamicModelDropdownsVisibility(AIManager.CurrentModelIsDynamic);
+-                
+-                if (_mainWindow?.uiManager != null) {
+-                    if (_mainWindow.uiManager.D_Slot1TargetClass != null) UpdateTargetClassDropdown(_mainWindow.uiManager.D_Slot1TargetClass, 1);
+-                    if (_mainWindow.uiManager.D_Slot2TargetClass != null) UpdateTargetClassDropdown(_mainWindow.uiManager.D_Slot2TargetClass, 2);
+-                }
+-                
+-                ErrorText.Visibility = Visibility.Collapsed;
+-            }
+-            catch (Exception ex)
+-            {
+-                ErrorText.Text = $"CRITICAL ERROR IN SETTINGS: {ex.Message}\n{ex.StackTrace}";
+-                ErrorText.Visibility = Visibility.Visible;
+-                LogManager.Log(LogLevel.Error, $"Settings initialization error: {ex}");
+-            }
++            _mainWindow = mainWindow;
++            _isInitialized = true;
++
++            // Load minimize states from global dictionary if they exist
++            LoadMinimizeStatesFromGlobal();
++
++            LoadModelSettings();
++            LoadSettingsConfig();
++            LoadThemeMenu();
++            LoadDisplaySelectMenu();
++
++            // Apply minimize states after loading
++            ApplyMinimizeStates();
++
++            // Subscribe to display changes
++            DisplayManager.DisplayChanged += OnDisplayChanged;
++
++            // Subscribe to AI class updates for Target Class dropdown
++            AIManager.ClassesUpdated += OnClassesChanged;
++
++            // Subscribe to dynamic model status changes
++            AIManager.DynamicModelStatusChanged += OnDynamicModelStatusChanged;
++
++            // Set visibility based on current model status (handles case where model loaded before panel opened)
++            UpdateDynamicModelDropdownsVisibility(AIManager.CurrentModelIsDynamic);
++            UpdateTargetClassDropdown(_mainWindow!.uiManager.D_TargetClass!);
+         }
+ 
+@@ -116,7 +93,5 @@
+
+         private void ApplyMinimizeStates()
+         {
+-            ApplyPanelState("Model AI (Slot 1)", ModelSettingsSlot1Panel);
+-            ApplyPanelState("Model AI (Slot 2)", ModelSettingsSlot2Panel);
+-            ApplyPanelState("Model Settings General", ModelSettingsGeneralPanel);
++            ApplyPanelState("Model Settings", ModelSettingsPanel);
+             ApplyPanelState("Settings Menu", SettingsConfigPanel);
+             ApplyPanelState("Theme Settings", ThemeMenuPanel);
+@@ -166,147 +141,86 @@
+
+         {
+             var uiManager = _mainWindow!.uiManager;
+-            
+-            // --- Slot 1 ---
+-            var builder1 = new SectionBuilder(this, ModelSettingsSlot1);
+-            builder1.AddTitle("Model AI (Slot 1)", true, t =>
+-            {
+-                t.Minimize.Click += (s, e) => TogglePanel("Model AI (Slot 1)", ModelSettingsSlot1Panel);
+-            })
+-            .AddDropdown("Slot 1 Image Size", d =>
+-            {
+-                uiManager.D_Slot1ImageSize = d;
+-                _mainWindow.AddDropdownItem(d, "640");
+-                _mainWindow.AddDropdownItem(d, "512");
+-                _mainWindow.AddDropdownItem(d, "416");
+-                _mainWindow.AddDropdownItem(d, "320");
+-                _mainWindow.AddDropdownItem(d, "256");
+-                _mainWindow.AddDropdownItem(d, "160");
+-
+-                string currentSize = "640";
+-                if (Dictionary.dropdownState.TryGetValue("Slot 1 Image Size", out var size)) currentSize = size.ToString();
+-                else Dictionary.dropdownState["Slot 1 Image Size"] = currentSize;
+-
+-                for (int i = 0; i < d.DropdownBox.Items.Count; i++)
+-                    if ((d.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == currentSize) { d.DropdownBox.SelectedIndex = i; break; }
+-
+-                d.DropdownBox.SelectionChanged += async (s, e) => await HandleImageSizeChange(1, d);
+-            }, tooltip: "Độ phân giải cho Slot 1.")
+-            .AddDropdown("Slot 1 Target Class", d =>
+-            {
+-                uiManager.D_Slot1TargetClass = d;
+-                d.DropdownBox.SelectedIndex = 0;
+-                _mainWindow.AddDropdownItem(d, "Best Confidence");
+-                UpdateTargetClassDropdown(d, 1);
+-            }, tooltip: "Loại mục tiêu cho Slot 1.")
+-            .AddSlider("Slot 1 AI Confidence", "Slot 1 %", 1, 1, 1, 100, s =>
+-            {
+-                uiManager.S_Slot1AIMinimumConfidence = s;
+-                double conf = 50.0;
+-                if (Dictionary.sliderSettings.TryGetValue("AI Minimum Confidence", out var val)) conf = Convert.ToDouble(val);
+-                
+-                s.Slider.Value = conf; 
+-                s.Slider.ValueChanged += (sender, e) => Dictionary.sliderSettings["AI Minimum Confidence"] = s.Slider.Value;
+-            }, tooltip: "Độ tin cậy cho Slot 1.")
+-            .AddToggle("Slot 1 Priority Aiming", t => uiManager.T_Slot1PriorityAiming = t, tooltip: "Ưu tiên chọn đúng bộ phận (Đầu/Thân) nếu model hỗ trợ.")
+-            .AddKeyChanger("Slot 1 Priority Key", k => uiManager.C_Slot1PriorityKey = k, tooltip: "Hold this key to prioritize Head; release it to default to Body (Slot 1).")
+-            .AddSeparator();
+-
+-            // --- Slot 2 ---
+-            var builder2 = new SectionBuilder(this, ModelSettingsSlot2);
+-            builder2.AddTitle("Model AI (Slot 2)", true, t =>
+-            {
+-                t.Minimize.Click += (s, e) => TogglePanel("Model AI (Slot 2)", ModelSettingsSlot2Panel);
+-            })
+-            .AddDropdown("Slot 2 Image Size", d =>
+-            {
+-                uiManager.D_Slot2ImageSize = d;
+-                _mainWindow.AddDropdownItem(d, "640");
+-                _mainWindow.AddDropdownItem(d, "512");
+-                _mainWindow.AddDropdownItem(d, "416");
+-                _mainWindow.AddDropdownItem(d, "320");
+-                _mainWindow.AddDropdownItem(d, "256");
+-                _mainWindow.AddDropdownItem(d, "160");
+-
+-                string currentSize = "640";
+-                if (Dictionary.dropdownState.TryGetValue("Slot 2 Image Size", out var size)) currentSize = size.ToString();
+-                else Dictionary.dropdownState["Slot 2 Image Size"] = currentSize;
+-
+-                for (int i = 0; i < d.DropdownBox.Items.Count; i++)
+-                    if ((d.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == currentSize) { d.DropdownBox.SelectedIndex = i; break; }
+-
+-                d.DropdownBox.SelectionChanged += async (s, e) => await HandleImageSizeChange(2, d);
+-            }, tooltip: "Độ phân giải cho Slot 2.")
+-            .AddDropdown("Slot 2 Target Class", d =>
+-            {
+-                uiManager.D_Slot2TargetClass = d;
+-                d.DropdownBox.SelectedIndex = 0;
+-                _mainWindow.AddDropdownItem(d, "Best Confidence");
+-                UpdateTargetClassDropdown(d, 2);
+-            }, tooltip: "Loại mục tiêu cho Slot 2.")
+-            .AddSlider("Slot 2 AI Confidence", "Slot 2 %", 1, 1, 1, 100, s =>
+-            {
+-                uiManager.S_Slot2AIMinimumConfidence = s;
+-                double conf = 50.0;
+-                if (Dictionary.sliderSettings.TryGetValue("Slot 2 AI Minimum Confidence", out var val)) conf = Convert.ToDouble(val);
+-
+-                s.Slider.Value = conf;
+-                s.Slider.ValueChanged += (sender, e) => Dictionary.sliderSettings["Slot 2 AI Minimum Confidence"] = s.Slider.Value;
+-            }, tooltip: "Độ tin cậy cho Slot 2.")
+-            .AddToggle("Slot 2 Priority Aiming", t => uiManager.T_Slot2PriorityAiming = t, tooltip: "Ưu tiên chọn đúng bộ phận (Đầu/Thân) nếu model hỗ trợ.")
+-            .AddKeyChanger("Slot 2 Priority Key", k => uiManager.C_Slot2PriorityKey = k, tooltip: "Hold this key to prioritize Head; release it to default to Body (Slot 2).")
+-            .AddSeparator();
+-
+-            // --- General ---
+-            var builderGen = new SectionBuilder(this, ModelSettingsGeneral);
+-            builderGen.AddTitle("Model Settings General", true, t =>
+-            {
+-                t.Minimize.Click += (s, e) => TogglePanel("Model Settings General", ModelSettingsGeneralPanel);
+-            })
+-            .AddToggle("Enable Model Switch Keybind", t => uiManager.T_EnableModelSwitchKeybind = t)
+-            .AddKeyChanger("Model Switch Keybind", k => uiManager.C_ModelSwitchKeybind = k)
+-            .AddKeyChanger("Emergency Stop Keybind", k => uiManager.C_EmergencyKeybind = k)
+-            .AddSeparator();
+-        }
+-
+-        private async Task HandleImageSizeChange(int slot, ADropdown d)
+-        {
+-            if (_updatingImageSizeDropdown) return;
+-            if (d.DropdownBox.SelectedItem == null || FileManager.CurrentlyLoadingModel) return;
+-
+-            var newSize = (d.DropdownBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+-            if (string.IsNullOrEmpty(newSize)) return;
+-
+-            string dictionaryKey = (slot == 1) ? "Slot 1 Image Size" : "Slot 2 Image Size";
+-            Dictionary.dropdownState[dictionaryKey] = newSize;
+-
+-            if (FileManager.AIManager != null)
+-            {
+-                bool isDynamic = (slot == 1) ? AIManager.Slot1IsDynamic : AIManager.Slot2IsDynamic;
+-                if (!isDynamic)
+-                {
+-                    LogManager.Log(LogLevel.Warning, $"Model ở Slot {slot} là model tĩnh. Không thể thay đổi Image Size.", true);
+-                    // Reset dropdown back to fixed size
+-                    int fixedSize = (slot == 1) ? AIManager.Slot1FixedSize : AIManager.Slot2FixedSize;
+-                    UpdateImageSizeDropdown(fixedSize.ToString(), slot);
+-                    return;
+-                }
+-
+-                FileManager.CurrentlyLoadingModel = true;
+-                LogManager.Log(LogLevel.Info, $"Đang thay đổi Image Size cho Slot {slot} thành {newSize}");
+-                
+-                try {
+-                    FileManager.AIManager.RequestSizeChange(int.Parse(newSize), slot);
+-                    await Task.Delay(150);
+-                    
+-                    var modelName = (slot == 1) ? Dictionary.lastLoadedModel : Dictionary.lastLoadedModelSlot2;
+-                    if (modelName != "N/A" && !string.IsNullOrEmpty(modelName)) {
+-                        // Re-trigger load to apply new size
+-                        string modelPath = System.IO.Path.Combine("bin", "models", slot == 1 ? "Slot1" : "Slot2", modelName);
+-                        if (slot == 1) await FileManager.AIManager.LoadModelAsync(modelPath);
+-                        else await FileManager.AIManager.LoadSecondaryModel(modelPath);
++            var builder = new SectionBuilder(this, ModelSettings);
++
++            builder
++                .AddTitle("Model Settings", true, t =>
++                {
++                    uiManager.AT_ModelSettings = t;
++                    t.Minimize.Click += (s, e) => TogglePanel("Model Settings", ModelSettingsPanel);
++                })
++                .AddDropdown("Image Size", d =>
++                {
++                    uiManager.D_ImageSize = d;
++
++                    // Add size options
++                    _mainWindow.AddDropdownItem(d, "640");
++                    _mainWindow.AddDropdownItem(d, "512");
++                    _mainWindow.AddDropdownItem(d, "416");
++                    _mainWindow.AddDropdownItem(d, "320");
++                    _mainWindow.AddDropdownItem(d, "256");
++                    _mainWindow.AddDropdownItem(d, "160");
++
++                    // Set default to current value
++                    var currentSize = Dictionary.dropdownState["Image Size"];
++                    for (int i = 0; i < d.DropdownBox.Items.Count; i++)
++                    {
++                        if ((d.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == currentSize)
++                        {
++                            d.DropdownBox.SelectedIndex = i;
++                            break;
++                        }
+                     }
+-                } catch (Exception ex) { LogManager.Log(LogLevel.Error, $"Lỗi khi đổi Image Size: {ex.Message}"); }
+-                finally { FileManager.CurrentlyLoadingModel = false; }
+-            }
++
++                    // Handle selection change
++                    d.DropdownBox.SelectionChanged += async (s, e) =>
++                    {
++                        if (_suppressImageSizeSelectionChanged)
++                            return;
++
++                        if (d.DropdownBox.SelectedItem == null || e.AddedItems.Count == 0)
++                            return;
++
++                        var newSize = (d.DropdownBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
++                        if (string.IsNullOrEmpty(newSize))
++                            return;
++
++                        await _mainWindow!.ChangeImageSizeAsync(newSize);
++                    };
++                }, tooltip: "Resolution the AI uses for detection. Smaller = faster but less accurate.")
++                .AddSlider("AI FPS Limit", "FPS", 5, 5, 0, 240, s =>
++                {
++                    uiManager.S_AIFpsLimit = s;
++                    s.SetValueFormatter(value => value <= 0 ? "Unlimited" : $"{value:F0} FPS");
++                }, tooltip: "Caps the AI loop to reduce CPU/GPU load. 0 keeps Aimmy running at full speed.")
++                .AddButton("Run Performance Helper", b =>
++                {
++                    b.Reader.Click += (s, e) => _mainWindow!.ShowPerformanceHelper();
++                }, tooltip: "Open the performance helper again for the currently loaded model.")
++                .AddDropdown("Target Class", d =>
++                {
++                    d.DropdownBox.SelectedIndex = 0;
++                    uiManager.D_TargetClass = d;
++                    _mainWindow.AddDropdownItem(d, "Best Confidence");
++                    UpdateTargetClassDropdown(d);
++                }, tooltip: "Which type of target to aim at. Best Confidence picks the most certain detection.")
++                .AddSlider("AI Minimum Confidence", "% Confidence", 1, 1, 1, 100, s =>
++                {
++                    uiManager.S_AIMinimumConfidence = s;
++                    s.Slider.PreviewMouseLeftButtonUp += (sender, e) =>
++                    {
++                        var value = s.Slider.Value;
++                        if (value >= 95)
++                            LogManager.Log(LogLevel.Warning, "The minimum confidence you have set for Aimmy to be too high and may be unable to detect players.", true);
++                        else if (value <= 35)
++                            LogManager.Log(LogLevel.Warning, "The minimum confidence you have set for Aimmy may be too low can cause false positives.", true);
++                    };
++                }, tooltip: "How sure the AI must be before targeting. Higher = fewer false detections but may miss targets.")
++                .AddToggle("Enable Model Switch Keybind", t => uiManager.T_EnableModelSwitchKeybind = t,
++                    tooltip: "Allow switching between AI models using a hotkey.")
++                .AddKeyChanger("Model Switch Keybind", k => uiManager.C_ModelSwitchKeybind = k,
++                    tooltip: "Press this key to cycle through available AI models.")
++                .AddKeyChanger("Emergency Stop Keybind", k => uiManager.C_EmergencyKeybind = k,
++                    tooltip: "Press this key to immediately stop all aim assist functions.")
++                .AddSeparator();
+         }
+ 
+@@ -323,37 +237,18 @@
+
+                 })
+                 .AddToggle("Collect Data While Playing", t => uiManager.T_CollectDataWhilePlaying = t,
+-                    tooltip: "Lưu ảnh chụp màn hình khi phát hiện mục tiêu để huấn luyện AI mới.")
++                    tooltip: "Save screenshots of detections for training new AI models.")
+                 .AddToggle("Auto Label Data", t => uiManager.T_AutoLabelData = t,
+-                    tooltip: "Tự động gán nhãn dữ liệu cho ảnh chụp màn hình.")
++                    tooltip: "Automatically label collected screenshots with detection data.")
+                 .AddToggle("Mouse Background Effect", t => uiManager.T_MouseBackgroundEffect = t,
+-                    tooltip: "Hiển thị hiệu ứng hình ảnh trên UI khi di chuyển chuột.")
++                    tooltip: "Show a visual effect on the UI when moving your mouse.")
+                 .AddToggle("UI TopMost", t => uiManager.T_UITopMost = t,
+-                    tooltip: "Giữ cửa sổ này luôn nằm trên các cửa sổ khác.")
++                    tooltip: "Keep this window above all other windows.")
+                 .AddToggle("Debug Mode", t => uiManager.T_DebugMode = t,
+-                    tooltip: "Hiển thị thêm thông tin hữu ích để khắc phục sự cố.")
++                    tooltip: "Show extra information useful for troubleshooting problems.")
+                 .AddButton("Save Config", b =>
+                 {
+                     uiManager.B_SaveConfig = b;
+                     b.Reader.Click += (s, e) => new ConfigSaver().ShowDialog();
+-                }, tooltip: "Lưu cài đặt hiện tại của bạn vào tệp tin để tải lại sau.")
+-                .AddSlider("Window Height", "Pixels", 1, 10, 444, 1080, s => 
+-                {
+-                    // Initialize with current height
+-                    s.Slider.Value = Application.Current.MainWindow.Height;
+-                    s.Slider.ValueChanged += (sender, e) => 
+-                    {
+-                        Application.Current.MainWindow.Height = s.Slider.Value;
+-                        Dictionary.sliderSettings["WindowHeight"] = s.Slider.Value;
+-                    };
+-                }, tooltip: "Điều chỉnh chiều cao cửa sổ ứng dụng.")
+-                .AddSlider("Window Width", "Pixels", 1, 10, 670, 1920, s => 
+-                {
+-                    s.Slider.Value = Application.Current.MainWindow.Width;
+-                    s.Slider.ValueChanged += (sender, e) => 
+-                    {
+-                        Application.Current.MainWindow.Width = s.Slider.Value;
+-                        Dictionary.sliderSettings["WindowWidth"] = s.Slider.Value;
+-                    };
+-                }, tooltip: "Điều chỉnh chiều rộng cửa sổ ứng dụng.")
++                }, tooltip: "Save your current settings to a file you can load later.")
+                 .AddSeparator();
+         }
+@@ -373,62 +268,11 @@
+
+                 .AddDropdown("Screen Capture Method", d =>
+                 {
++                    d.DropdownBox.SelectedIndex = -1;  // Prevent auto-selection that overwrites saved state
+                     uiManager.D_ScreenCaptureMethod = d;
+                     _mainWindow.AddDropdownItem(d, "DirectX");
+                     _mainWindow.AddDropdownItem(d, "GDI+");
+-                    _mainWindow.AddDropdownItem(d, "WGC");
+-                    d.DropdownBox.SelectedIndex = 1;  // Default to GDI+ to avoid empty selection
+-
+-                    int captureSelectionVersion = 0;
+-                    d.DropdownBox.SelectionChanged += async (s, e) =>
+-                    {
+-                        int selectionVersion = ++captureSelectionVersion;
+-                        var method = (d.DropdownBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+-                        if (!string.IsNullOrEmpty(method))
+-                        {
+-                            if (method == "DirectX")
+-                            {
+-                                bool isDirectXSupported = false;
+-                                string? supportError = null;
+-                                await Task.Run(() =>
+-                                {
+-                                    try
+-                                    {
+-                                        var testManager = new CaptureManager();
+-                                        testManager.CaptureMethodKey = "Screen Capture Method";
+-                                        try { testManager.InitializeDxgiDuplication(updateSettingsOnFailure: false); }
+-                                        finally { testManager.Dispose(); }
+-                                        isDirectXSupported = true;
+-                                    }
+-                                    catch (Exception ex)
+-                                    {
+-                                        supportError = ex.Message;
+-                                    }
+-                                });
+-
+-                                if (selectionVersion != captureSelectionVersion) return;
+-
+-                                if (!isDirectXSupported)
+-                                {
+-                                    CaptureManager.ReportCaptureFailure("Screen Capture Method", "DirectX", new NotSupportedException(supportError));
+-                                    // Revert selection to GDI+
+-                                    for (int i = 0; i < d.DropdownBox.Items.Count; i++)
+-                                    {
+-                                        if ((d.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == "GDI+")
+-                                        {
+-                                            d.DropdownBox.SelectedIndex = i;
+-                                            break;
+-                                        }
+-                                    }
+-                                    return;
+-                                }
+-                            }
+-                            Dictionary.dropdownState["Screen Capture Method"] = method;
+-                            _mainWindow.SaveAllConfigurations();
+-                            await CaptureManager.ReleaseInactiveWgcSessionsAsync();
+-                        }
+-                    };
+-                }, tooltip: "Cách chụp màn hình. DirectX nhanh hơn, GDI+ hoạt động trên nhiều hệ thống hơn. WGC dùng Windows Graphics Capture (Windows 10 1903 trở lên).")
++                }, tooltip: "How the screen is captured. DirectX is faster, GDI+ works on more systems.")
+                 .AddToggle("StreamGuard", t => uiManager.T_StreamGuard = t,
+-                    tooltip: "Ẩn lớp phủ (overlay) khỏi các phần mềm quay màn hình và stream.")
++                    tooltip: "Hide the overlay from screen recordings and streams. - Appears in system tray.")
+                 .AddSeparator();
+ 
+@@ -442,5 +286,5 @@
+
+ 
+             // Add refresh button after DisplaySelector
+-            var refreshButton = new APButton("Refresh Displays", "Cập nhật danh sách màn hình.");
++            var refreshButton = new APButton("Refresh Displays", "Update the list of available monitors.");
+             refreshButton.Reader.Click += (s, e) =>
+             {
+@@ -449,15 +293,13 @@
+
+                     DisplayManager.RefreshDisplays();
+                     uiManager.DisplaySelector.RefreshDisplays();
+-                    LogManager.Log(LogLevel.Info, "Làm mới danh sách màn hình thành công.", true);
++                    LogManager.Log(LogLevel.Info, "Display list refreshed successfully.", true);
+                 }
+                 catch (Exception ex)
+                 {
+-                    LogManager.Log(LogLevel.Error, $"Lỗi khi làm mới màn hình: {ex.Message}", true);
++                    LogManager.Log(LogLevel.Error, $"Error refreshing displays: {ex.Message}", true);
+                 }
+             };
+             DisplaySelectMenu.Children.Insert(insertIndex + 1, refreshButton);
+         }
+-
+-
+ 
+         private void LoadThemeMenu()
+@@ -498,5 +340,5 @@
+
+                 try
+                 {
+-                    LogManager.Log(LogLevel.Info, $"AI đã chuyển tiêu điểm sang Màn hình {e.DisplayIndex + 1} ({e.Bounds.Width}x{e.Bounds.Height})", true);
++                    LogManager.Log(LogLevel.Info, $"AI focus switched to Display {e.DisplayIndex + 1} ({e.Bounds.Width}x{e.Bounds.Height})", true);
+                     UpdateDisplayRelatedSettings(e);
+                 }
+@@ -518,29 +360,36 @@
+
+         }
+ 
+-        private bool _updatingImageSizeDropdown;
+-        public void UpdateImageSizeDropdown(string newSize, int slot)
+-        {
+-            _updatingImageSizeDropdown = true;
+-            try
+-            {
+-                var dropdown = slot == 1 ? _mainWindow?.uiManager.D_Slot1ImageSize : _mainWindow?.uiManager.D_Slot2ImageSize;
+-                if (dropdown == null) return;
+-                for (int i = 0; i < dropdown.DropdownBox.Items.Count; i++)
+-                {
+-                    if ((dropdown.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() != newSize) continue;
+-                    dropdown.DropdownBox.SelectedIndex = i;
+-                    break;
+-                }
+-            }
+-            finally { _updatingImageSizeDropdown = false; }
+-        }
++        public void UpdateImageSizeDropdown(string newSize, bool suppressSelectionChanged = true)
++        {
++            if (_mainWindow?.uiManager.D_ImageSize != null)
++            {
++                var dropdown = _mainWindow.uiManager.D_ImageSize;
++                _suppressImageSizeSelectionChanged = suppressSelectionChanged;
++                try
++                {
++                    for (int i = 0; i < dropdown.DropdownBox.Items.Count; i++)
++                    {
++                        if ((dropdown.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == newSize)
++                        {
++                            dropdown.DropdownBox.SelectedIndex = i;
++                            break;
++                        }
++                    }
++                }
++                finally
++                {
++                    _suppressImageSizeSelectionChanged = false;
++                }
++            }
++        }
++
+         private void OnClassesChanged(Dictionary<int, string> classes)
+         {
+             Application.Current.Dispatcher.Invoke(() =>
+             {
+-                if (_mainWindow?.uiManager.D_Slot1TargetClass != null)
+-                    UpdateTargetClassDropdown(_mainWindow.uiManager.D_Slot1TargetClass, 1, classes);
+-                if (_mainWindow?.uiManager.D_Slot2TargetClass != null)
+-                    UpdateTargetClassDropdown(_mainWindow.uiManager.D_Slot2TargetClass, 2, classes);
++                if (_mainWindow?.uiManager.D_TargetClass != null)
++                {
++                    UpdateTargetClassDropdown(_mainWindow.uiManager.D_TargetClass, classes);
++                }
+             });
+         }
+@@ -556,26 +405,24 @@
+
+         private void UpdateDynamicModelDropdownsVisibility(bool isDynamic)
+         {
+-            // Always show the image size dropdown for UI consistency, but respect minimized/collapsed state
+-            if (_mainWindow?.uiManager.D_Slot1ImageSize != null)
+-            {
+-                bool slot1Minimized = _localMinimizeState.TryGetValue("Model AI (Slot 1)", out var m1) && m1;
+-                _mainWindow.uiManager.D_Slot1ImageSize.Visibility = slot1Minimized ? Visibility.Collapsed : Visibility.Visible;
+-            }
+-            
+-            if (_mainWindow?.uiManager.D_Slot2ImageSize != null)
+-            {
+-                bool slot2Minimized = _localMinimizeState.TryGetValue("Model AI (Slot 2)", out var m2) && m2;
+-                _mainWindow.uiManager.D_Slot2ImageSize.Visibility = slot2Minimized ? Visibility.Collapsed : Visibility.Visible;
+-            }
+-        }
+-
+-        private void UpdateTargetClassDropdown(ADropdown dropdown, int slot, Dictionary<int, string>? _classes = null)
++            // Only Image Size depends on dynamic model - it's hidden for static models
++            // Target Class is always visible since both static and dynamic models can have multiple classes
++            var imageSizeVisibility = isDynamic ? Visibility.Visible : Visibility.Collapsed;
++
++            if (_mainWindow?.uiManager.D_ImageSize != null)
++            {
++                _mainWindow.uiManager.D_ImageSize.Visibility = imageSizeVisibility;
++            }
++        }
++
++        private void UpdateTargetClassDropdown(ADropdown dropdown, Dictionary<int, string>? _classes = null)
+         {
+             if (dropdown?.DropdownBox == null) return;
++            var visibility = _classes != null && _classes.Count > 1
++                ? Visibility.Visible
++                : Visibility.Collapsed;
++            dropdown.Visibility = visibility;
++            _mainWindow!.uiManager.D_TargetClass!.Visibility = visibility;
++
+             string? selection = (dropdown.DropdownBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+-
+-            // Store current selection to dictionary to ensure persistence
+-            string dictionaryKey = (slot == 1) ? "Slot 1 Target Class" : "Slot 2 Target Class";
+-            if (!string.IsNullOrEmpty(selection)) Dictionary.dropdownState[dictionaryKey] = selection;
+ 
+             var removedItems = dropdown.DropdownBox.Items.Cast<ComboBoxItem>()
+@@ -583,17 +430,25 @@
+
+                 .ToList();
+ 
+-            foreach (var item in removedItems) dropdown.DropdownBox.Items.Remove(item);
++            foreach (var item in removedItems)
++            {
++                dropdown.DropdownBox.Items.Remove(item);
++            }
+ 
+             var classes = _classes ?? FileManager.AIManager?.ModelClasses ?? new Dictionary<int, string>();
++
+             foreach (var kvp in classes.OrderBy(x => x.Key))
++            {
+                 _mainWindow!.AddDropdownItem(dropdown, kvp.Value);
+-
+-            string targetSelection = selection ?? Dictionary.dropdownState[dictionaryKey];
+-            for (int i = 0; i < dropdown.DropdownBox.Items.Count; i++)
+-            {
+-                if ((dropdown.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == targetSelection)
+-                {
+-                    dropdown.DropdownBox.SelectedIndex = i;
+-                    return;
++            }
++
++            if (!string.IsNullOrEmpty(selection)) // tries to restore the selection
++            {
++                for (int i = 0; i < dropdown.DropdownBox.Items.Count; i++)
++                {
++                    if ((dropdown.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() == selection)
++                    {
++                        dropdown.DropdownBox.SelectedIndex = i;
++                        return;
++                    }
+                 }
+             }
+@@ -655,8 +510,4 @@
+
+                         keyChanger.KeyNotifier.Content = KeybindNameManager.ConvertToRegularKey(key);
+                         Dictionary.bindingSettings[bindingId] = key;
+-                        if (PriorityAimingConfig.IsPriorityKey(bindingId))
+-                        {
+-                            PriorityAimingConfig.Save();
+-                        }
+                         _mainWindow.bindingManager.OnBindingSet -= bindingSetHandler;
+                     }
+@@ -744,5 +595,6 @@
+
+             public SectionBuilder AddButton(string title, Action<APButton>? configure = null, string? tooltip = null)
+             {
+-                var button = new APButton(title, tooltip);
++                string icon = title == "Run Performance Helper" ? "\uE768" : "\uE8B0";
++                var button = new APButton(title, tooltip, icon);
+                 configure?.Invoke(button);
+                 _panel.Children.Add(button);
+@@ -761,3 +613,2 @@
+
+     }
+ }
+-

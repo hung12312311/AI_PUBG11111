@@ -1,0 +1,164 @@
+--- Custom/InputLogic/InputBindingManager.cs
+
++++ Upstream/InputLogic/InputBindingManager.cs
+
+@@ -12,9 +12,8 @@
+
+ 
+         public event Action<string, string>? OnBindingSet;
++
+         public event Action<string>? OnBindingPressed;
++
+         public event Action<string>? OnBindingReleased;
+-        public event Action<Keys>? OnAnyKeyDown;
+-
+-        private static readonly HashSet<string> currentlyPressedKeys = [];
+ 
+         public static bool IsHoldingBinding(string bindingId) => isHolding.TryGetValue(bindingId, out bool holding) && holding;
+@@ -27,6 +26,4 @@
+
+             EnsureHookEvents();
+         }
+-
+-        public string GetBinding(string bindingId) => bindings.GetValueOrDefault(bindingId, "None");
+ 
+         public void StartListeningForBinding(string bindingId)
+@@ -48,85 +45,51 @@
+
+         }
+ 
+-        private bool IsModifier(Keys key)
+-        {
+-            return key == Keys.ControlKey || key == Keys.LControlKey || key == Keys.RControlKey ||
+-                   key == Keys.ShiftKey || key == Keys.LShiftKey || key == Keys.RShiftKey ||
+-                   key == Keys.Menu || key == Keys.LMenu || key == Keys.RMenu;
+-        }
+-
+         private void GlobalHookKeyDown(object sender, KeyEventArgs e)
+         {
+-            currentlyPressedKeys.Add(e.KeyCode.ToString());
+-            OnAnyKeyDown?.Invoke(e.KeyCode);
+-
+             if (settingBindingId != null)
+             {
+-                string combo = "";
+-                string keyPart = e.KeyCode.ToString();
+-                
+-                // If it's a modifier key, we don't want to prefix it with itself (e.g. no "Shift+LShiftKey")
+-                bool isControl = (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.LControlKey || e.KeyCode == Keys.RControlKey);
+-                bool isAlt = (e.KeyCode == Keys.Menu || e.KeyCode == Keys.LMenu || e.KeyCode == Keys.RMenu);
+-                bool isShift = (e.KeyCode == Keys.ShiftKey || e.KeyCode == Keys.LShiftKey || e.KeyCode == Keys.RShiftKey);
+-
+-                if (e.Control && !isControl) combo += "Control+";
+-                if (e.Alt && !isAlt) combo += "Alt+";
+-                if (e.Shift && !isShift) combo += "Shift+";
+-                
+-                combo += keyPart;
+-
+-                bindings[settingBindingId] = combo;
+-                OnBindingSet?.Invoke(settingBindingId, combo);
++                bindings[settingBindingId] = e.KeyCode.ToString();
++                OnBindingSet?.Invoke(settingBindingId, e.KeyCode.ToString());
+                 settingBindingId = null;
+             }
+-            
+-            CheckAndTriggerBindings();
++            else
++            {
++                foreach (var binding in bindings)
++                {
++                    if (binding.Value == e.KeyCode.ToString())
++                    {
++                        isHolding[binding.Key] = true;
++                        OnBindingPressed?.Invoke(binding.Key);
++                    }
++                }
++            }
+         }
+ 
+         private void GlobalHookMouseDown(object sender, MouseEventArgs e)
+         {
+-            currentlyPressedKeys.Add(e.Button.ToString());
+-
+             if (settingBindingId != null)
+             {
+-                string combo = "";
+-                if ((Control.ModifierKeys & Keys.Control) == Keys.Control) combo += "Control+";
+-                if ((Control.ModifierKeys & Keys.Alt) == Keys.Alt) combo += "Alt+";
+-                if ((Control.ModifierKeys & Keys.Shift) == Keys.Shift) combo += "Shift+";
+-                combo += e.Button.ToString();
+-
+-                bindings[settingBindingId] = combo;
+-                OnBindingSet?.Invoke(settingBindingId, combo);
++                bindings[settingBindingId] = e.Button.ToString();
++                OnBindingSet?.Invoke(settingBindingId, e.Button.ToString());
+                 settingBindingId = null;
+             }
+-
+-            CheckAndTriggerBindings();
++            else
++            {
++                foreach (var binding in bindings)
++                {
++                    if (binding.Value == e.Button.ToString())
++                    {
++                        isHolding[binding.Key] = true;
++                        OnBindingPressed?.Invoke(binding.Key);
++                    }
++                }
++            }
+         }
+ 
+         private void GlobalHookKeyUp(object sender, KeyEventArgs e)
+         {
+-            currentlyPressedKeys.Remove(e.KeyCode.ToString());
+-            CheckAndTriggerBindings();
+-        }
+-
+-        private void GlobalHookMouseUp(object sender, MouseEventArgs e)
+-        {
+-            currentlyPressedKeys.Remove(e.Button.ToString());
+-            CheckAndTriggerBindings();
+-        }
+-
+-        private void CheckAndTriggerBindings()
+-        {
+             foreach (var binding in bindings)
+             {
+-                bool pressed = IsComboHeld(binding.Value);
+-                bool wasHeld = isHolding.GetValueOrDefault(binding.Key, false);
+-
+-                if (pressed && !wasHeld)
+-                {
+-                    isHolding[binding.Key] = true;
+-                    OnBindingPressed?.Invoke(binding.Key);
+-                }
+-                else if (!pressed && wasHeld)
++                if (binding.Value == e.KeyCode.ToString())
+                 {
+                     isHolding[binding.Key] = false;
+@@ -136,16 +99,14 @@
+
+         }
+ 
+-        private bool IsComboHeld(string combo)
++        private void GlobalHookMouseUp(object sender, MouseEventArgs e)
+         {
+-            if (string.IsNullOrEmpty(combo) || combo == "None") return false;
+-            var parts = combo.Split('+');
+-            foreach (var part in parts)
++            foreach (var binding in bindings)
+             {
+-                if (part == "Control") { if ((Control.ModifierKeys & Keys.Control) != Keys.Control) return false; }
+-                else if (part == "Alt") { if ((Control.ModifierKeys & Keys.Alt) != Keys.Alt) return false; }
+-                else if (part == "Shift") { if ((Control.ModifierKeys & Keys.Shift) != Keys.Shift) return false; }
+-                else if (!currentlyPressedKeys.Contains(part)) return false;
++                if (binding.Value == e.Button.ToString())
++                {
++                    isHolding[binding.Key] = false;
++                    OnBindingReleased?.Invoke(binding.Key);
++                }
+             }
+-            return true;
+         }
+ 

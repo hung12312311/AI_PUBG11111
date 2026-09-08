@@ -1,0 +1,42 @@
+--- Custom/UILibrary/ASlider.xaml
+
++++ Upstream/UILibrary/ASlider.xaml
+
+@@ -30,25 +30,15 @@
+
+                        HorizontalAlignment="Left"
+                        Width="172" />
+-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Height="40" Margin="0,0,10,0">
+-                    <TextBox x:Name="ValueInput"
+-                             FontFamily="{StaticResource Atkinson Hyperlegible}"
+-                             Text="0.95"
+-                             Foreground="#DDFFFFFF"
+-                             Background="Transparent"
+-                             BorderThickness="0"
+-                             VerticalContentAlignment="Center"
+-                             FontSize="13"
+-                             Width="60"
+-                             TextAlignment="Right"
+-                             VerticalAlignment="Center" />
+-                     <Label x:Name="UnitLabel"
+-                           Padding="5,0,0,0"
+-                           FontFamily="{StaticResource Atkinson Hyperlegible}"
+-                           Content="Sensitivity"
+-                           Foreground="#DDFFFFFF"
+-                           VerticalContentAlignment="Center"
+-                           FontSize="13"
+-                           VerticalAlignment="Center" />
+-                </StackPanel>
++                <Label x:Name="AdjustNotifier"
++                       Padding="10,10,10,10"
++                       FontFamily="{StaticResource Atkinson Hyperlegible}"
++                       Content="0.95 Sensitivity"
++                       Foreground="#DDFFFFFF"
++                       VerticalContentAlignment="Center"
++                       FontSize="13"
++                       VerticalAlignment="Top"
++                       Height="40"
++                       HorizontalAlignment="Right"
++                       HorizontalContentAlignment="Right" />
+                 <Slider x:Name="Slider"
+                         Margin="35,40,35,0"

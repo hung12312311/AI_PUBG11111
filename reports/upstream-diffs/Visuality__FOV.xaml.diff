@@ -1,0 +1,15 @@
+--- Custom/Visuality/FOV.xaml
+
++++ Upstream/Visuality/FOV.xaml
+
+@@ -12,7 +12,7 @@
+
+         AllowsTransparency="True"
+         ResizeMode="NoResize"
+-        ShowInTaskbar="False" ShowActivated="False"
++        ShowInTaskbar="False"
+         WindowStyle="None"
+-        WindowStartupLocation="Manual" WindowState="Normal">
++        WindowStartupLocation="CenterScreen" WindowState="Maximized">
+     <Grid>
+         <Grid x:Name="FOVStrictEnclosure"

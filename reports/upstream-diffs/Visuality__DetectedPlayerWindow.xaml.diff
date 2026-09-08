@@ -1,0 +1,23 @@
+--- Custom/Visuality/DetectedPlayerWindow.xaml
+
++++ Upstream/Visuality/DetectedPlayerWindow.xaml
+
+@@ -9,15 +9,12 @@
+
+         AllowsTransparency="True"
+         Background="Transparent"
+-        WindowState="Normal"
++        WindowState="Maximized"
+         Topmost="True"
+         Focusable="False"
+-        ShowInTaskbar="False" ShowActivated="False"
++        ShowInTaskbar="False"
+         Closing="Window_Closing"
+         ResizeMode="NoResize"
+         IsTabStop="False">
+     <Grid>
+-        <!-- Canvas for drawing multiple detection boxes -->
+-        <Canvas x:Name="DetectionCanvas" />
+-        
+         <Label x:Name="DetectedPlayerConfidence"
+                HorizontalAlignment="Left"

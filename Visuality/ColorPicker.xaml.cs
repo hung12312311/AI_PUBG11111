@@ -20,6 +20,7 @@ namespace UISections
         public ColorPicker(Color initialColor, string title = "Theme Color")
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             //--
             ColorPickerTitle = title;
             ColorWheelControl.Title = ColorPickerTitle;

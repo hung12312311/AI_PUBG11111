@@ -1,0 +1,123 @@
+--- Custom/AILogic/PredictionManager.cs
+
++++ Upstream/AILogic/PredictionManager.cs
+
+@@ -1,5 +1,3 @@
+
+ using Aimmy2.Class;
+-using Class;
+-using System.Runtime.CompilerServices;
+ 
+ namespace AILogic
+@@ -93,5 +91,5 @@
+
+ 
+             // Get base lead time from settings
+-            double leadTime = (double)Dictionary.sliderSettings["Kalman Lead Time"];
++            double leadTime = AimSettings.KalmanLeadTime;
+ 
+             // Dynamically adjust based on mouse speed if available
+@@ -194,5 +192,5 @@
+
+         {
+             // Get lead time from settings
+-            double leadTime = (double)Dictionary.sliderSettings["WiseTheFox Lead Time"];
++            double leadTime = AimSettings.WiseTheFoxLeadTime;
+ 
+             // Predict where target will be after lead time
+@@ -270,5 +268,5 @@
+
+ 
+             // Get lead multiplier from settings
+-            double leadMultiplier = (double)Dictionary.sliderSettings["Shalloe Lead Multiplier"];
++            double leadMultiplier = AimSettings.ShalloeLeadMultiplier;
+ 
+             // Calculate average velocity
+@@ -287,5 +285,5 @@
+
+ 
+             // Get lead multiplier from settings
+-            double leadMultiplier = (double)Dictionary.sliderSettings["Shalloe Lead Multiplier"];
++            double leadMultiplier = AimSettings.ShalloeLeadMultiplier;
+ 
+             // Calculate average velocity
+@@ -304,78 +302,3 @@
+
+         }
+     }
+-
+-    internal class ConstantAccelerationPrediction
+-    {
+-        private double _x, _y;       // Position
+-        private double _vx, _vy;     // Velocity
+-        private double _ax, _ay;     // Acceleration
+-        private DateTime _lastUpdate;
+-        private bool _initialized = false;
+-
+-        // Smoothing factors
+-        private const double PosAlpha = 0.6;
+-        private const double VelAlpha = 0.4;
+-        private const double AccAlpha = 0.2;
+-
+-        public void Update(double targetX, double targetY)
+-        {
+-            DateTime now = DateTime.UtcNow;
+-            if (!_initialized)
+-            {
+-                _x = targetX;
+-                _y = targetY;
+-                _vx = _vy = _ax = _ay = 0;
+-                _lastUpdate = now;
+-                _initialized = true;
+-                return;
+-            }
+-
+-            double dt = (now - _lastUpdate).TotalSeconds;
+-            if (dt <= 0) return;
+-
+-            // 1. Calculate new velocity from position change
+-            double newVx = (targetX - _x) / dt;
+-            double newVy = (targetY - _y) / dt;
+-
+-            // 2. Calculate new acceleration from velocity change
+-            double newAx = (newVx - _vx) / dt;
+-            double newAy = (newVy - _vy) / dt;
+-
+-            // 3. Update state with Exponential Moving Average (EMA) for smoothing
+-            _x = PosAlpha * targetX + (1 - PosAlpha) * _x;
+-            _y = PosAlpha * targetY + (1 - PosAlpha) * _y;
+-
+-            _vx = VelAlpha * newVx + (1 - VelAlpha) * _vx;
+-            _vy = VelAlpha * newVy + (1 - VelAlpha) * _vy;
+-
+-            _ax = AccAlpha * newAx + (1 - AccAlpha) * _ax;
+-            _ay = AccAlpha * newAy + (1 - AccAlpha) * _ay;
+-
+-            _lastUpdate = now;
+-        }
+-
+-        public (int X, int Y) GetPrediction()
+-        {
+-            if (!_initialized) return (0, 0);
+-
+-            // Get lead multiplier from settings
+-            double lead = 0.1;
+-            if (Dictionary.sliderSettings.ContainsKey("CA Lead Multiplier"))
+-            {
+-                lead = (double)Dictionary.sliderSettings["CA Lead Multiplier"];
+-            }
+-            
+-            // Physics formula: s = v*t + 0.5*a*t^2
+-            double predX = _x + (_vx * lead) + (0.5 * _ax * lead * lead);
+-            double predY = _y + (_vy * lead) + (0.5 * _ay * lead * lead);
+-
+-            return ((int)predX, (int)predY);
+-        }
+-
+-        public void Reset()
+-        {
+-            _initialized = false;
+-            _x = _y = _vx = _vy = _ax = _ay = 0;
+-        }
+-    }
+ }

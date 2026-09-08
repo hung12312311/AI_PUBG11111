@@ -1,0 +1,16 @@
+--- Custom/InputLogic/MovementPaths.cs
+
++++ Upstream/InputLogic/MovementPaths.cs
+
+@@ -21,7 +21,7 @@
+
+         internal static Point Lerp(Point start, Point end, double t)
+         {
+-            double x = start.X + (end.X - start.X) * t;
+-            double y = start.Y + (end.Y - start.Y) * t;
+-            return new Point((int)x, (int)y);
++            int x = (int)(start.X + (end.X - start.X) * t);
++            int y = (int)(start.Y + (end.Y - start.Y) * t);
++            return new Point(x, y);
+         }
+ 

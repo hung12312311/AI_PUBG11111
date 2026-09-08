@@ -474,6 +474,12 @@ namespace AILogic
                             for (int y = 0; y < h; y++)
                             {
                                 Buffer.MemoryCopy(src, dst, dstStride, copyBytesPerRow);
+                                // Staging pixels outside the copied ROI are undefined, not black.
+                                int validLeft = srcLeft - relativeDetectionLeft, validTop = srcTop - relativeDetectionTop;
+                                int validRight = srcRight - relativeDetectionLeft, validBottom = srcBottom - relativeDetectionTop;
+                                for (int x = 0; x < w; x++)
+                                    if (x < validLeft || x >= validRight || y < validTop || y >= validBottom)
+                                    { dst[x * 4] = dst[x * 4 + 1] = dst[x * 4 + 2] = 0; dst[x * 4 + 3] = 255; }
                                 src += srcStride;
                                 dst += dstStride;
                             }
@@ -544,6 +550,8 @@ namespace AILogic
         /// </summary>
         public unsafe bool CaptureAndConvertDirectX(Rectangle detectionBox, float[] result, int imageSize, bool thirdPersonSupport)
         {
+            if (detectionBox.Width != imageSize || detectionBox.Height != imageSize || result.Length != checked(3 * imageSize * imageSize))
+                throw new ArgumentException("DirectX fast-path tensor must match the capture dimensions.");
             if (Dictionary.dropdownState[CaptureMethodKey] != "DirectX") return false;
             // The DirectX fast path bypasses ScreenGrab when switching away from WGC.
             DisposeWgcResources();
@@ -651,6 +659,17 @@ namespace AILogic
                         int srcStride = (int)map.RowPitch;
                         
                         MathUtil.DxMapToFloatArray(srcPtr, srcStride, result, imageSize, thirdPersonSupport);
+                        if (srcLeft != relativeDetectionLeft || srcTop != relativeDetectionTop || srcRight != relativeDetectionRight || srcBottom != relativeDetectionBottom)
+                        {
+                            int plane = imageSize * imageSize;
+                            for (int y = 0; y < imageSize; y++)
+                            for (int x = 0; x < imageSize; x++)
+                            {
+                                if (x + relativeDetectionLeft >= srcLeft && x + relativeDetectionLeft < srcRight && y + relativeDetectionTop >= srcTop && y + relativeDetectionTop < srcBottom) continue;
+                                int index = y * imageSize + x;
+                                result[index] = result[plane + index] = result[2 * plane + index] = 0;
+                            }
+                        }
                     }
                     finally
                     {
@@ -736,13 +755,11 @@ namespace AILogic
             {
                 using (var g = Graphics.FromImage(screenCaptureBitmap))
                 {
-                    g.CopyFromScreen(
-                        detectionBox.Left,
-                        detectionBox.Top,
-                        0, 0,
-                        detectionBox.Size,
-                        CopyPixelOperation.SourceCopy
-                    );
+                    g.Clear(System.Drawing.Color.Black);
+                    var visible = Rectangle.Intersect(detectionBox, new Rectangle(DisplayManager.ScreenLeft, DisplayManager.ScreenTop, DisplayManager.ScreenWidth, DisplayManager.ScreenHeight));
+                    if (visible.Width > 0 && visible.Height > 0)
+                        g.CopyFromScreen(visible.Left, visible.Top, visible.Left - detectionBox.Left, visible.Top - detectionBox.Top,
+                            visible.Size, CopyPixelOperation.SourceCopy);
 
                     if (Dictionary.toggleState["Third Person Support"])
                     {

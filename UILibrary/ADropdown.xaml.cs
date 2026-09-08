@@ -9,13 +9,17 @@ namespace UILibrary
     /// </summary>
     public partial class ADropdown : UserControl
     {
+        public string SettingKey => main_dictionary_path;
         private string main_dictionary_path { get; set; }
 
         public ADropdown(string title, string dictionary_path, string? tooltip = null)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             DropdownTitle.Content = title;
+            global::Other.UiLanguage.Localize(DropdownTitle);
             main_dictionary_path = dictionary_path;
+            global::Other.UiLanguage.PrepareDropdown(DropdownBox);
 
             if (!string.IsNullOrEmpty(tooltip))
             {
@@ -23,6 +27,7 @@ namespace UILibrary
                 if (TryFindResource("Tooltip") is System.Windows.Style style)
                     tt.Style = style;
                 ToolTip = tt;
+                global::Other.UiLanguage.Localize(tt);
             }
         }
 

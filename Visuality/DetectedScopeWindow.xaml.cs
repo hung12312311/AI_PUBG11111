@@ -1,4 +1,4 @@
-using Aimmy2.Class;
+﻿using Aimmy2.Class;
 using System.Windows;
 
 namespace Visuality
@@ -8,6 +8,7 @@ namespace Visuality
         public DetectedScopeWindow()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             
             // Position at top-right corner
             this.Left = SystemParameters.PrimaryScreenWidth - this.Width - 20;
@@ -45,7 +46,7 @@ namespace Visuality
         {
             Dispatcher.Invoke(() =>
             {
-                ActiveSlotText.Text = $"Slot {slotNumber}";
+                ActiveSlotText.Text = $"Model scope {slotNumber}";
             });
         }
 

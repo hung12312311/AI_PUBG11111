@@ -1,4 +1,4 @@
-using Aimmy2.Class;
+﻿using Aimmy2.Class;
 using Microsoft.Win32;
 using System.IO;
 using UserControl = System.Windows.Controls.UserControl;
@@ -19,7 +19,9 @@ namespace UILibrary
         public AFileLocator(string title, string dictionary_path, string FileFilter = "All files (*.*)|*.*", string DLExtension = "")
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             DropdownTitle.Content = title;
+            global::Other.UiLanguage.Localize(DropdownTitle);
 
             main_dictionary_path = dictionary_path;
             string fullPath = Dictionary.filelocationState[main_dictionary_path];

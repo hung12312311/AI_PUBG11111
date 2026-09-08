@@ -1,28 +1,29 @@
-# AIOK
+# AIOK — bản cập nhật custom
 
-Phiên bản đầu tiên: **v1 (1.0.0)**.
+Mã nguồn chính: https://github.com/hung12312311/AI_PUBG11111
 
-## Chạy ứng dụng
+## Build và chạy
 
-Mở `bin/Build/CouldBeAimmyV2.exe`. Giữ nguyên toàn bộ thư mục `bin/Build` để có đủ thư viện, model và cấu hình. Tên executable được giữ để tương thích với các cấu hình hiện có.
-
-## Biên dịch
-
-Windows, .NET 8 SDK:
+Windows, .NET 8 SDK, cấu hình x64:
 
 ```powershell
 dotnet restore Aimmy2.csproj
-dotnet build Aimmy2.csproj -p:Platform=x64
+dotnet build Aimmy2.csproj -c Release -p:Platform=x64
 ```
 
-Đầu ra duy nhất: `bin/Build`. TensorRT yêu cầu môi trường CUDA/TensorRT tương ứng.
+Mở `bin/Build/CouldBeAimmyV2.exe`. Git giữ model và cấu hình đầu vào trong `bin/Build/bin`; thư viện NuGet và chương trình được tạo lại khi build. Giữ nguyên thư mục đầu ra khi chạy. TensorRT cần môi trường CUDA/TensorRT phù hợp; file engine phụ thuộc phần cứng và phiên bản runtime.
 
-## Nội dung bản đầu tiên
+## Các thay đổi hiện tại
 
-Theo yêu cầu lưu toàn bộ dự án, bản v1 bao gồm cả mã nguồn, bản chạy, model, config, `.vs`, `obj` và các bản lưu trong `scratch`. `scratch` chứa lịch sử phát triển và build cũ; bản chạy hiện tại ở `bin/Build`.
+- Cập nhật capture, thông tin model, ONNX/TensorRT và bảng hiệu suất.
+- Giao diện Việt/Anh, lưu kích thước cửa sổ và độ nhạy riêng theo capture → kích thước ảnh → model.
+- Bắn từng viên có 5 mức; phát tiếp theo dùng mức 5. Sửa trạng thái ghì liên tục và lực bù con lăn.
+- Bỏ build/cache khỏi Git; vẫn giữ dữ liệu runtime và các bản backup trong lịch sử.
 
-`AIOK-v1-files.csv` liệt kê đường dẫn, dung lượng và SHA-256 của các file trong bản chụp này (ngoại trừ chính danh sách và dữ liệu quản lý `.git`).
+Xem [báo cáo cập nhật](MERGE_REPORT.md), [tài liệu](Documentation.md) và các báo cáo cụ thể trong `reports/`.
 
-Bản này đã biên dịch; chưa được kiểm thử chạy trong lần phát hành này.
+## Kiểm chứng và giới hạn
 
-Các lần cập nhật tiếp theo tiếp tục trên nhánh `main`; tag `v1` giữ nguyên mốc phát hành đầu tiên.
+Release gần nhất: 0 lỗi, 250 cảnh báo. Bộ kiểm tra UI, tọa độ chuột, độ nhạy, bắn từng viên và lực ghì liên tục đã chạy qua. Chưa xác nhận cảm giác WGC/ghì tâm trực tiếp trong game. Driver ddxoft vẫn có lỗi cài đặt trên máy đang thử; không coi là đã sửa. Chưa xác nhận toàn bộ hạng mục trong master prompt hoàn tất.
+
+Bản v1 và backup trước cập nhật giữ nguyên; xem cách quay lại trong MERGE_REPORT.md.

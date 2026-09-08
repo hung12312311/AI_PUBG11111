@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 
 namespace Aimmy2
@@ -17,6 +17,7 @@ namespace Aimmy2
         public ExitConfirmationWindow()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
         }
 
         private void Hide_Click(object sender, RoutedEventArgs e)

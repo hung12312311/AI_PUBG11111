@@ -43,6 +43,7 @@ namespace Aimmy2
         public StartupWindow()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.Default;
         }
 
@@ -315,6 +316,8 @@ namespace Aimmy2
                     {
                         try
                         {
+                            _targetWidth = _mainWindow.Width;
+                            _targetHeight = _mainWindow.Height;
                             _mainWindow.Measure(new Size(_targetWidth, _targetHeight));
                             _mainWindow.Arrange(new Rect(0, 0, _targetWidth, _targetHeight));
                             tcs.SetResult(true);
@@ -358,8 +361,9 @@ namespace Aimmy2
 
         private void SetupTransitionGeometry()
         {
-            _mainWindow.Left = Left;
-            _mainWindow.Top = Top;
+            // Keep the splash center when revealing a differently sized main window.
+            _mainWindow.Left = Left + (Width - _mainWindow.Width) / 2;
+            _mainWindow.Top = Top + (Height - _mainWindow.Height) / 2;
             _mainWindow.Show();
             _mainWindow.Opacity = 0;
 
@@ -378,8 +382,8 @@ namespace Aimmy2
 
             RevealClip.Rect = new Rect(offsetX, offsetY, startWidth, startHeight);
 
-            Left = _mainWindow.Left - offsetX;
-            Top = _mainWindow.Top - offsetY;
+            Left = _mainWindow.Left;
+            Top = _mainWindow.Top;
             Width = _targetWidth;
             Height = _targetHeight;
         }

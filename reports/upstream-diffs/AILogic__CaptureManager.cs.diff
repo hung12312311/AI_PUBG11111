@@ -1,0 +1,702 @@
+--- Custom/AILogic/CaptureManager.cs
+
++++ Upstream/AILogic/CaptureManager.cs
+
+@@ -9,7 +9,4 @@
+
+ using Vortice.Mathematics;
+ using LogLevel = Other.LogManager.LogLevel;
+-using Class;
+-using Aimmy2;
+-
+ 
+ namespace AILogic
+@@ -18,14 +15,7 @@
+
+     {
+         #region Variables
+-        public string CaptureMethodKey { get; set; } = "Screen Capture Method";
+         private string _currentCaptureMethod = ""; // Track current method
+         private bool _directXFailedPermanently = false; // Track if DirectX failed with unsupported error
+         private bool _notificationShown = false; // Prevent spam notifications
+-        private WindowsGraphicsCapture? _wgc;
+-        private static readonly object InstancesLock = new();
+-        private static readonly List<WeakReference<CaptureManager>> Instances = new();
+-        // Keep a failed WGC backend disabled across model/manager recreation for this run.
+-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Exception> WgcFailures = new();
+-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> ReportedCaptureFailures = new();
+ 
+         // Capturing
+@@ -60,79 +50,6 @@
+
+         public CaptureManager()
+         {
+-            lock (InstancesLock)
+-            {
+-                Instances.RemoveAll(reference => !reference.TryGetTarget(out _));
+-                Instances.Add(new WeakReference<CaptureManager>(this));
+-            }
+             // Subscribe to display changes FIRST
+             DisplayManager.DisplayChanged += OnDisplayChanged;
+-        }
+-
+-        internal static Task ReleaseInactiveWgcSessionsAsync()
+-        {
+-            CaptureManager[] managers;
+-            lock (InstancesLock)
+-            {
+-                managers = Instances.Select(reference => reference.TryGetTarget(out var manager) ? manager : null)
+-                    .OfType<CaptureManager>().ToArray();
+-            }
+-            // Closing a capture session may wait for the GPU. Keep that off the UI thread.
+-            return Task.Run(() =>
+-            {
+-                foreach (var manager in managers)
+-                {
+-                    lock (manager._displayLock)
+-                    {
+-                        // Read the latest selection so a rapid switch back to WGC is respected.
+-                        if ((string)Dictionary.dropdownState[manager.CaptureMethodKey] != "WGC")
+-                            manager.DisposeWgcResources();
+-                    }
+-                }
+-            });
+-        }
+-
+-        internal static void ValidateSavedCaptureMethods()
+-        {
+-            foreach (string key in new[] { "Screen Capture Method", "Scope Capture Method" })
+-            {
+-                string method = Dictionary.dropdownState[key];
+-                if (method == "GDI+") continue;
+-                var manager = new CaptureManager { CaptureMethodKey = key };
+-                try
+-                {
+-                    if (method != "DirectX" && method != "WGC")
+-                        throw new NotSupportedException($"Unknown capture method: {method}");
+-                    if (method == "DirectX")
+-                    {
+-                        // A desktop with no new frame is not a failure. Validate the
+-                        // duplication session without treating its initial timeout as one.
+-                        manager.InitializeDxgiDuplication();
+-                        continue;
+-                    }
+-                    DisplayManager.Initialize();
+-                    var display = DisplayManager.CurrentDisplay
+-                        ?? throw new InvalidOperationException("No display available.");
+-                    var region = new Rectangle((int)display.Bounds.Left + (int)display.Bounds.Width / 2 - 16,
+-                        (int)display.Bounds.Top + (int)display.Bounds.Height / 2 - 16, 32, 32);
+-                    var timer = System.Diagnostics.Stopwatch.StartNew();
+-                    do
+-                    {
+-                        if (manager.ScreenGrab(region) != null) break;
+-                        if (timer.ElapsedMilliseconds >= 2000)
+-                            throw new TimeoutException($"{method} did not deliver a startup frame within two seconds.");
+-                        System.Threading.Thread.Sleep(10);
+-                    } while (true);
+-                    if (Dictionary.dropdownState[key] != method)
+-                        manager.SaveCaptureSetting();
+-                }
+-                catch (Exception ex)
+-                {
+-                    if (method == "WGC") WgcFailures.TryAdd(key, ex);
+-                    Dictionary.dropdownState[key] = "GDI+";
+-                    manager.SaveCaptureSetting();
+-                    ReportCaptureFailure(key, method, ex);
+-                }
+-                finally { manager.Dispose(); }
+-            }
+         }
+ 
+@@ -145,5 +62,5 @@
+
+                 DisposeDxgiResources();
+             }
+-            LogManager.Log(LogLevel.Info, $"Display change detected. {CaptureMethodKey} resources will be reinitialized when needed.");
++            LogManager.Log(LogLevel.Info, "Display change detected. DirectX resources will be reinitialized.");
+         }
+ 
+@@ -153,11 +70,4 @@
+
+             {
+                 if (!_displayChangesPending) return;
+-
+-                if (Dictionary.dropdownState[CaptureMethodKey] != "DirectX")
+-                {
+-                    DisposeWgcResources();
+-                    _displayChangesPending = false;
+-                    return;
+-                }
+ 
+                 try
+@@ -175,10 +85,9 @@
+
+         #endregion
+         #region DirectX
+-        public void InitializeDxgiDuplication(bool updateSettingsOnFailure = true)
++        public void InitializeDxgiDuplication()
+         {
+             DisposeDxgiResources();
+             try
+             {
+-                DisplayManager.Initialize();
+                 var currentDisplay = DisplayManager.CurrentDisplay;
+                 if (currentDisplay == null)
+@@ -266,4 +175,5 @@
+
+                 if (targetAdapter == null || targetOutput1 == null)
+                 {
++                    LogManager.Log(LogLevel.Error, "No suitable display output found for DirectX capture.", true, 6000);
+                     throw new Exception("No suitable display output found");
+                 }
+@@ -301,4 +211,5 @@
+
+                     if (result.Failure || _dxDevice == null)
+                     {
++                        LogManager.Log(LogLevel.Error, $"Failed to create D3D11 device: {result}", true, 6000);
+                         throw new Exception($"Failed to create D3D11 device: {result}");
+                     }
+@@ -311,23 +222,23 @@
+
+                 LogManager.Log(LogLevel.Info, "DirectX Desktop Duplication initialized successfully.");
+             }
+-            catch (Exception ex)
+-            {
++            catch (SharpGenException ex) when (ex.ResultCode == Vortice.DXGI.ResultCode.Unsupported || ex.HResult == unchecked((int)0x887A0004))
++            {
++                LogManager.Log(LogLevel.Error, $"DirectX Desktop Duplication not supported on this system: {ex.Message}", true, 6000);
+                 _directXFailedPermanently = true;
+                 DisposeDxgiResources();
+ 
+-                // A background support probe must never overwrite a newer UI selection.
+-                if (!updateSettingsOnFailure || Dictionary.dropdownState[CaptureMethodKey] != "DirectX")
+-                    throw;
+-
+-                Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
++                AimSettings.ScreenCaptureMethod = "GDI+";
+                 _currentCaptureMethod = "GDI+";
+-                SaveCaptureSetting();
+-                UpdateUIDropdown("GDI+");
+-                ReportCaptureFailure(CaptureMethodKey, "DirectX", ex);
+-
++
++                LogManager.Log(LogLevel.Error, "DirectX Desktop Duplication not supported on this system. Switched to GDI+ capture.", true, 6000);
++            }
++            catch (Exception ex)
++            {
++                LogManager.Log(LogLevel.Error, $"Failed to initialize DirectX Desktop Duplication: {ex.Message}", true, 6000);
++                DisposeDxgiResources();
+                 throw;
+             }
+         }
+-        private Bitmap? DirectX(Rectangle detectionBox)
++        private Bitmap? DirectX(Rectangle detectionBox, bool allowStaleCache = false)
+         {
+             int w = detectionBox.Width;
+@@ -358,5 +269,5 @@
+
+                     {
+                         lock (_displayLock) { _displayChangesPending = true; }
+-                        return GetCachedFrame(detectionBox);
++                        return GetCachedFrame(detectionBox, allowStaleCache);
+                     }
+                 }
+@@ -395,5 +306,5 @@
+
+                     // No new frame available - this is normal
+                     _consecutiveFailures = 0; // Reset failure counter
+-                    return GetCachedFrame(detectionBox);
++                    return GetCachedFrame(detectionBox, allowStaleCache);
+                 }
+                 else if (result == Vortice.DXGI.ResultCode.DeviceRemoved || result == Vortice.DXGI.ResultCode.AccessLost)
+@@ -404,5 +315,5 @@
+
+                         lock (_displayLock) { _displayChangesPending = true; }
+ 
+-                    return GetCachedFrame(detectionBox);
++                    return GetCachedFrame(detectionBox, allowStaleCache);
+                 }
+                 else if (result != Result.Ok)
+@@ -410,5 +321,5 @@
+
+                     // Other error
+                     _consecutiveFailures++;
+-                    return GetCachedFrame(detectionBox);
++                    return GetCachedFrame(detectionBox, allowStaleCache);
+                 }
+ 
+@@ -452,5 +363,5 @@
+
+                     {
+                         LogManager.Log(LogLevel.Warning, "No visible region to copy from DirectX capture.", true, 3000);
+-                        return GetCachedFrame(detectionBox);
++                        return GetCachedFrame(detectionBox, allowStaleCache);
+                     }
+ 
+@@ -479,5 +390,5 @@
+
+                             }
+ 
+-                            if (Dictionary.toggleState["Third Person Support"]) // a mask basically
++                            if (AimSettings.ThirdPersonSupport) // a mask basically
+                             {
+                                 int width = w / 2;
+@@ -510,5 +421,5 @@
+
+ 
+ 
+-                    resultBitmap = directXBitmap;
++                    resultBitmap = (Bitmap)directXBitmap.Clone();
+                     UpdateCache(resultBitmap, detectionBox);
+                     return resultBitmap;
+@@ -522,5 +433,5 @@
+
+                     lock (_displayLock) { _displayChangesPending = true; }
+ 
+-                return GetCachedFrame(detectionBox);
++                return GetCachedFrame(detectionBox, allowStaleCache);
+             }
+             finally
+@@ -538,155 +449,4 @@
+
+             }
+         }
+-
+-        /// <summary>
+-        /// Captures screen region directly from VRAM staging texture mapped memory and converts to float array.
+-        /// Bypasses Bitmap allocation entirely.
+-        /// </summary>
+-        public unsafe bool CaptureAndConvertDirectX(Rectangle detectionBox, float[] result, int imageSize, bool thirdPersonSupport)
+-        {
+-            if (Dictionary.dropdownState[CaptureMethodKey] != "DirectX") return false;
+-            // The DirectX fast path bypasses ScreenGrab when switching away from WGC.
+-            DisposeWgcResources();
+-            int w = detectionBox.Width;
+-            int h = detectionBox.Height;
+-            bool frameAcquired = false;
+-            IDXGIResource? desktopResource = null;
+-
+-            try
+-            {
+-                lock (_displayLock)
+-                {
+-                    if (_displayChangesPending)
+-                    {
+-                        InitializeDxgiDuplication();
+-                        _displayChangesPending = false;
+-                    }
+-                }
+-
+-                if (_dxDevice == null || _dxDevice.ImmediateContext == null || _deskDuplication == null)
+-                {
+-                    InitializeDxgiDuplication();
+-                    if (_dxDevice == null || _dxDevice.ImmediateContext == null || _deskDuplication == null)
+-                    {
+-                        lock (_displayLock) { _displayChangesPending = true; }
+-                        return false;
+-                    }
+-                }
+-
+-                if (_stagingTex == null ||
+-                    _stagingTex.Description.Width != w ||
+-                    _stagingTex.Description.Height != h)
+-                {
+-                    _stagingTex?.Dispose();
+-                    _stagingTex = _dxDevice.CreateTexture2D(new Texture2DDescription
+-                    {
+-                        Width = (uint)w,
+-                        Height = (uint)h,
+-                        MipLevels = 1,
+-                        ArraySize = 1,
+-                        Format = Format.B8G8R8A8_UNorm,
+-                        SampleDescription = new(1, 0),
+-                        Usage = ResourceUsage.Staging,
+-                        CPUAccessFlags = CpuAccessFlags.Read,
+-                        BindFlags = BindFlags.None
+-                    });
+-                }
+-
+-                int timeout = _consecutiveFailures > 0 ? 5 : 1;
+-                var resultDx = _deskDuplication!.AcquireNextFrame((uint)timeout, out var frameInfo, out desktopResource);
+-
+-                if (resultDx == Vortice.DXGI.ResultCode.WaitTimeout)
+-                {
+-                    _consecutiveFailures = 0;
+-                    return false;
+-                }
+-                else if (resultDx == Vortice.DXGI.ResultCode.DeviceRemoved || resultDx == Vortice.DXGI.ResultCode.AccessLost)
+-                {
+-                    _consecutiveFailures++;
+-                    if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)
+-                        lock (_displayLock) { _displayChangesPending = true; }
+-                    return false;
+-                }
+-                else if (resultDx != Result.Ok)
+-                {
+-                    _consecutiveFailures++;
+-                    return false;
+-                }
+-
+-                frameAcquired = true;
+-                _consecutiveFailures = 0;
+-
+-                using (var screenTexture = desktopResource.QueryInterface<ID3D11Texture2D>())
+-                {
+-                    int relativeDetectionLeft = detectionBox.Left - DisplayManager.ScreenLeft;
+-                    int relativeDetectionTop = detectionBox.Top - DisplayManager.ScreenTop;
+-                    int relativeDetectionRight = relativeDetectionLeft + detectionBox.Width;
+-                    int relativeDetectionBottom = relativeDetectionTop + detectionBox.Height;
+-
+-                    int srcLeft = Math.Max(relativeDetectionLeft, 0);
+-                    int srcTop = Math.Max(relativeDetectionTop, 0);
+-                    int srcRight = Math.Min(relativeDetectionRight, DisplayManager.ScreenWidth);
+-                    int srcBottom = Math.Min(relativeDetectionBottom, DisplayManager.ScreenHeight);
+-
+-                    if (srcRight > srcLeft && srcBottom > srcTop)
+-                    {
+-                        var box = new Box(srcLeft, srcTop, 0, srcRight, srcBottom, 1);
+-
+-                        _dxDevice.ImmediateContext.CopySubresourceRegion(
+-                               _stagingTex, 0,
+-                               (uint)(srcLeft - relativeDetectionLeft),
+-                               (uint)(srcTop - relativeDetectionTop),
+-                               0,
+-                               screenTexture, 0, box);
+-                    }
+-                    else
+-                    {
+-                        return false;
+-                    }
+-
+-                    var map = _dxDevice.ImmediateContext.Map(_stagingTex, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
+-                    try
+-                    {
+-                        byte* srcPtr = (byte*)map.DataPointer;
+-                        int srcStride = (int)map.RowPitch;
+-                        
+-                        MathUtil.DxMapToFloatArray(srcPtr, srcStride, result, imageSize, thirdPersonSupport);
+-                    }
+-                    finally
+-                    {
+-                        _dxDevice.ImmediateContext.Unmap(_stagingTex, 0);
+-                    }
+-                    return true;
+-                }
+-            }
+-            catch (Exception e)
+-            {
+-                LogManager.Log(LogLevel.Error, $"DirectX capture & convert error: {e.Message}");
+-                if (++_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)
+-                {
+-                    lock (_displayLock) { _displayChangesPending = true; }
+-                    LogManager.Log(LogLevel.Error, "DirectX capture failed repeatedly. Falling back to GDI+.");
+-                    Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
+-                    _currentCaptureMethod = "GDI+";
+-                    SaveCaptureSetting();
+-                    UpdateUIDropdown("GDI+");
+-                    DisposeDxgiResources();
+-                }
+-                return false;
+-            }
+-            finally
+-            {
+-                desktopResource?.Dispose();
+-                try
+-                {
+-                    if (frameAcquired && _deskDuplication != null)
+-                    {
+-                        _deskDuplication.ReleaseFrame();
+-                    }
+-                }
+-                catch { }
+-            }
+-        }
+-
+         #region Frame Caching
+ 
+@@ -706,11 +466,11 @@
+
+ 
+ 
+-        private Bitmap? GetCachedFrame(Rectangle detectionBox)
++        private Bitmap? GetCachedFrame(Rectangle detectionBox, bool allowStaleCache = false)
+         {
+             if (_cachedFrame != null &&
+                 _cachedFrameBounds.Equals(detectionBox) &&
+-                DateTime.Now - _lastFrameTime <= _frameCacheTimeout)
+-            {
+-                return _cachedFrame;
++                (allowStaleCache || DateTime.Now - _lastFrameTime <= _frameCacheTimeout))
++            {
++                return (Bitmap)_cachedFrame.Clone();
+             }
+             return null;
+@@ -745,5 +505,5 @@
+
+                     );
+ 
+-                    if (Dictionary.toggleState["Third Person Support"])
++                    if (AimSettings.ThirdPersonSupport)
+                     {
+                         int width = screenCaptureBitmap.Width / 2;
+@@ -756,5 +516,8 @@
+
+                 }
+ 
+-                return screenCaptureBitmap;
++                // Clone the bitmap to avoid race conditions with Sticky Aim / SaveFrame
++                // The source bitmap is reused, so returning it directly can cause crashes
++                // if the caller is still using it when the next frame capture starts
++                return (Bitmap)screenCaptureBitmap.Clone();
+             }
+             catch (Exception ex)
+@@ -766,91 +529,14 @@
+
+         #endregion
+ 
+-        public bool LastCaptureConverted { get; private set; }
+-        public bool LastCaptureWaitingForFrame { get; private set; }
+-        // Scope preprocessing owns its snapshot; it must never hold the reusable
+-        // WGC bitmap after the capture lock is released.
+-        public Bitmap? ScreenGrabSnapshot(Rectangle detectionBox)
+-        {
+-            return ScreenGrab(detectionBox, copyBitmap: true);
+-        }
+-
+-        public Bitmap? ScreenGrab(Rectangle detectionBox, float[]? tensor = null, bool copyBitmap = false)
+-        {
+-            Bitmap? CopyIfRequested(Bitmap? image) => copyBitmap ? (Bitmap?)image?.Clone() : image;
+-            LastCaptureConverted = false;
+-            LastCaptureWaitingForFrame = false;
+-            string selectedMethod = Dictionary.dropdownState[CaptureMethodKey];
+-
+-            if (selectedMethod == "WGC")
+-            {
+-                if (WgcFailures.ContainsKey(CaptureMethodKey))
+-                {
+-                    Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
+-                    _currentCaptureMethod = "GDI+";
+-                    UpdateUIDropdown("GDI+");
+-                    return CopyIfRequested(GDIScreen(detectionBox));
+-                }
+-
+-                // DisplayManager raises DisplayChanged while holding its own lock.
+-                // Never acquire that lock while holding _displayLock (opposite lock order).
+-                DisplayManager.Initialize();
+-                var display = DisplayManager.CurrentDisplay;
+-                lock (_displayLock)
+-                {
+-                    try
+-                    {
+-                        // A method change may have closed WGC while this call waited
+-                        // for the lock. Do not recreate the old session from a stale selection.
+-                        if ((string)Dictionary.dropdownState[CaptureMethodKey] != "WGC") return null;
+-                        if (_currentCaptureMethod != "WGC")
+-                        {
+-                            DisposeDxgiResources();
+-                            directXBitmap = null;
+-                            screenCaptureBitmap?.Dispose();
+-                            screenCaptureBitmap = null;
+-                            _currentCaptureMethod = "WGC";
+-                        }
+-                        if (_displayChangesPending)
+-                        {
+-                            DisposeWgcResources();
+-                            _displayChangesPending = false;
+-                        }
+-                        if (display == null) throw new InvalidOperationException("No display available for WGC.");
+-                        _wgc ??= new WindowsGraphicsCapture(new Rectangle((int)display.Bounds.Left,
+-                            (int)display.Bounds.Top, (int)display.Bounds.Width, (int)display.Bounds.Height));
+-                        var bitmap = _wgc.Capture(detectionBox, (bool)Dictionary.toggleState["Third Person Support"], tensor,
+-                            requireNewFrame: CaptureMethodKey == "Screen Capture Method");
+-                        LastCaptureConverted = _wgc.ConvertedToTensor;
+-                        LastCaptureWaitingForFrame = _wgc.WaitingForNewFrame;
+-                        if (copyBitmap && bitmap != null)
+-                        {
+-                            bitmap = (Bitmap)bitmap.Clone();
+-                        }
+-                        return bitmap;
+-                    }
+-                    catch (Exception ex)
+-                    {
+-                        // Commit fallback BEFORE cleanup, logging, or UI work can fail.
+-                        bool firstFailure = WgcFailures.TryAdd(CaptureMethodKey, ex);
+-                        Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
+-                        _currentCaptureMethod = "GDI+";
+-                        DisposeWgcResources();
+-                        SaveCaptureSetting();
+-                        UpdateUIDropdown("GDI+");
+-                        if (firstFailure) ReportCaptureFailure(CaptureMethodKey, "WGC", ex);
+-                        return CopyIfRequested(GDIScreen(detectionBox));
+-                    }
+-                }
+-            }
+-            DisposeWgcResources();
++        public Bitmap? ScreenGrab(Rectangle detectionBox, bool allowStaleCache = false)
++        {
++            string selectedMethod = AimSettings.ScreenCaptureMethod;
+ 
+             // If DirectX failed permanently, force GDI+
+             if (_directXFailedPermanently && selectedMethod == "DirectX")
+             {
+-                Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
++                AimSettings.ScreenCaptureMethod = "GDI+";
+                 selectedMethod = "GDI+";
+                 _currentCaptureMethod = "GDI+";
+-                SaveCaptureSetting();
+-                UpdateUIDropdown("GDI+");
+             }
+ 
+@@ -875,19 +561,5 @@
+
+                 else
+                 {
+-                    try
+-                    {
+-                        InitializeDxgiDuplication();
+-                    }
+-                    catch
+-                    {
+-                        // Fallback to GDI+ if initialization fails
+-                        Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
+-                        selectedMethod = "GDI+";
+-                        _currentCaptureMethod = "GDI+";
+-                        SaveCaptureSetting();
+-                        UpdateUIDropdown("GDI+");
+-                        DisposeDxgiResources();
+-                        return CopyIfRequested(GDIScreen(detectionBox));
+-                    }
++                    InitializeDxgiDuplication();
+                 }
+             }
+@@ -895,116 +567,13 @@
+
+             if (selectedMethod == "DirectX" && !_directXFailedPermanently)
+             {
+-                var bmp = DirectX(detectionBox);
+-                if (bmp == null || _consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)
+-                {
+-                    LogManager.Log(LogLevel.Error, "DirectX capture failed. Falling back to GDI+.");
+-                    Dictionary.dropdownState[CaptureMethodKey] = "GDI+";
+-                    _currentCaptureMethod = "GDI+";
+-                    SaveCaptureSetting();
+-                    UpdateUIDropdown("GDI+");
+-                    DisposeDxgiResources();
+-                    return CopyIfRequested(GDIScreen(detectionBox));
+-                }
+-                return CopyIfRequested(bmp);
++                return DirectX(detectionBox, allowStaleCache);
+             }
+             else
+             {
+-                return CopyIfRequested(GDIScreen(detectionBox));
+-            }
+-        }
+-
+-        private void SaveCaptureSetting()
+-        {
+-            CapturePreferences.Save();
+-            try
+-            {
+-                SaveDictionary.WriteJSON(Dictionary.dropdownState, "bin\\dropdown.cfg");
+-                
+-                // Also save to active configuration if available
+-                string activeConfig = Dictionary.lastLoadedConfig;
+-                if (!string.IsNullOrEmpty(activeConfig) && activeConfig != "N/A")
+-                {
+-                    string activeConfigPath = System.IO.Path.Combine("bin\\configs", activeConfig);
+-                    SaveDictionary.WriteJSON(Dictionary.sliderSettings
+-                        .Where(kvp => kvp.Key != "Screen Capture Method" && kvp.Key != "Scope Capture Method"
+-                            && kvp.Key != "Slot 1 Image Size" && kvp.Key != "Slot 2 Image Size")
+-                        .Concat(Dictionary.dropdownState)
+-                        .GroupBy(kvp => kvp.Key)
+-                        .ToDictionary(g => g.Key, g => g.First().Value), activeConfigPath);
+-                }
+-            }
+-            catch (Exception ex)
+-            {
+-                LogManager.Log(LogLevel.Error, $"Failed to save capture setting: {ex.Message}");
+-            }
+-        }
+-
+-        internal static void ReportCaptureFailure(string captureMethodKey, string backend, Exception exception)
+-        {
+-            if (!ReportedCaptureFailures.TryAdd(captureMethodKey + ":" + backend, 0)) return;
+-            string message = $"{captureMethodKey}: {backend} failed (0x{exception.HResult:X8}): {exception.Message}. Using GDI+. See logs/capture-error.txt.";
+-            try
+-            {
+-                var directory = System.IO.Path.Combine(AppContext.BaseDirectory, "logs");
+-                System.IO.Directory.CreateDirectory(directory);
+-                System.IO.File.AppendAllText(System.IO.Path.Combine(directory, "capture-error.txt"),
+-                    $"{DateTime.Now:O}\n{captureMethodKey}: {backend}\n{exception}\n");
+-            }
+-            catch { /* Error reporting must not prevent capture fallback. */ }
+-
+-            // Never wait for the UI thread while holding a capture lock.
+-            try
+-            {
+-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+-                {
+-                    try { LogManager.Log(LogLevel.Error, message, true, 6000); }
+-                    catch { /* The UI may already be shutting down. */ }
+-                }));
+-            }
+-            catch { }
+-        }
+-
+-        private void UpdateUIDropdown(string method)
+-        {
+-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+-            {
+-                try
+-                {
+-                    var mainWindow = System.Windows.Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+-                    if (mainWindow?.uiManager != null)
+-                    {
+-                        var dropdown = (CaptureMethodKey == "Scope Capture Method") 
+-                            ? mainWindow.uiManager.D_ScopeCaptureMethod 
+-                            : mainWindow.uiManager.D_ScreenCaptureMethod;
+-
+-                        if (dropdown?.DropdownBox != null)
+-                        {
+-                            for (int i = 0; i < dropdown.DropdownBox.Items.Count; i++)
+-                            {
+-                                if ((dropdown.DropdownBox.Items[i] as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() == method)
+-                                {
+-                                    dropdown.DropdownBox.SelectedIndex = i;
+-                                    break;
+-                                }
+-                            }
+-                        }
+-                    }
+-                }
+-                catch { }
+-            });
++                return GDIScreen(detectionBox);
++            }
+         }
+ 
+         #region dispose
+-        private void DisposeWgcResources()
+-        {
+-            if (_wgc == null) return;
+-            lock (_displayLock)
+-            {
+-                var capture = _wgc;
+-                _wgc = null;
+-                capture?.Dispose();
+-            }
+-        }
+-
+         public void DisposeDxgiResources()
+         {
+@@ -1046,8 +615,5 @@
+
+         public void Dispose()
+         {
+-            lock (InstancesLock)
+-                Instances.RemoveAll(reference => !reference.TryGetTarget(out var manager) || ReferenceEquals(manager, this));
+             DisplayManager.DisplayChanged -= OnDisplayChanged;
+-            DisposeWgcResources();
+             DisposeDxgiResources();
+             screenCaptureBitmap?.Dispose();

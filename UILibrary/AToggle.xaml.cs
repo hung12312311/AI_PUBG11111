@@ -18,7 +18,9 @@ namespace Aimmy2.UILibrary
         public AToggle(string Text, string? tooltip = null)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             ToggleTitle.Content = Text;
+            global::Other.UiLanguage.Localize(ToggleTitle);
 
             if (!string.IsNullOrEmpty(tooltip))
             {
@@ -26,6 +28,7 @@ namespace Aimmy2.UILibrary
                 if (TryFindResource("Tooltip") is Style style)
                     tt.Style = style;
                 ToolTip = tt;
+                global::Other.UiLanguage.Localize(tt);
             }
 
             // Subscribe to theme change events

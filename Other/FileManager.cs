@@ -1,4 +1,4 @@
-using Aimmy2.AILogic;
+﻿using Aimmy2.AILogic;
 using Aimmy2.Class;
 using Aimmy2.Other;
 using Class;
@@ -83,7 +83,7 @@ namespace Other
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error creating a required directory: {ex}");
+                global::Other.LocalizedMessageBox.Show($"Error creating a required directory: {ex}");
                 Application.Current.Shutdown();
             }
         }
@@ -125,14 +125,16 @@ namespace Other
             if (Dictionary.lastLoadedModel == selectedModel) return;
 
             CurrentlyLoadingModel = true;
+            string previousModel = Dictionary.lastLoadedModel;
             Dictionary.lastLoadedModel = selectedModel;
             LogManager.Log(LogManager.LogLevel.Info, $"Đang nạp Model Slot 1: {selectedModel}...", true, 2000);
 
+            Dictionary<string, dynamic>? originalToggleStates = null;
             try
             {
                 // Pause AI features
                 var toggleKeys = new[] { "Aim Assist", "Constant AI Tracking", "Auto Trigger", "Show Detected Player", "Show AI Confidence", "Show Tracers" };
-                var originalToggleStates = toggleKeys.ToDictionary(key => key, key => Dictionary.toggleState[key]);
+                originalToggleStates = toggleKeys.ToDictionary(key => key, key => Dictionary.toggleState[key]);
                 foreach (var key in toggleKeys) Dictionary.toggleState[key] = false;
 
                 await Task.Delay(150);
@@ -147,6 +149,8 @@ namespace Other
                 // Load Slot 1 model from specific path
                 AIManager = await Task.Run(() => new AIManager(modelPath));
                 await AIManager.Initialization;
+                if (AIManager.GetModelMetadata(1) == null)
+                    throw new InvalidOperationException("Model Slot 1 không tải thành công.");
 
                 // If Slot 2 was previously loaded, try to reload it into the new AIManager
                 if (Dictionary.lastLoadedModelSlot2 != "N/A")
@@ -166,14 +170,19 @@ namespace Other
                     }
                 }
 
-                // Restore toggles
-                foreach (var keyValuePair in originalToggleStates) Dictionary.toggleState[keyValuePair.Key] = keyValuePair.Value;
-
                 string content = "Loaded Slot 1: " + selectedModel;
                 Slot1Notifier.Content = content;
             }
+            catch (Exception ex)
+            {
+                Dictionary.lastLoadedModel = previousModel;
+                Slot1Notifier.Content = "Không tải được Slot 1";
+                LogManager.Log(LogManager.LogLevel.Error, $"Không tải được model Slot 1: {ex.Message}", true, 8000);
+            }
             finally
             {
+                if (originalToggleStates != null)
+                    foreach (var pair in originalToggleStates) Dictionary.toggleState[pair.Key] = pair.Value;
                 CurrentlyLoadingModel = false;
             }
         }
@@ -212,7 +221,6 @@ namespace Other
             if (CurrentlyLoadingModel || CurrentlyLoadingSecondaryModel) return;
             if (Dictionary.lastLoadedModelSlot2 == selectedModel) return;
             
-            Dictionary.lastLoadedModelSlot2 = selectedModel;
             LogManager.Log(LogManager.LogLevel.Info, $"Đang nạp Model Slot 2: {selectedModel}...", true, 2000);
             
             if (AIManager != null)
@@ -221,8 +229,17 @@ namespace Other
                 try
                 {
                     await AIManager.LoadSecondaryModel(modelPath, showNotification: true);
+                    var loaded = AIManager.GetModelMetadata(2);
+                    if (loaded == null || !string.Equals(Path.GetFullPath(loaded.ModelPath), Path.GetFullPath(modelPath), StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("Model Slot 2 không tải thành công.");
+                    Dictionary.lastLoadedModelSlot2 = selectedModel;
                     string content = "Loaded Slot 2: " + selectedModel;
                     SelectedModelNotifier.Content = content;
+                }
+                catch (Exception ex)
+                {
+                    SelectedModelNotifier.Content = "Không tải được Slot 2";
+                    LogManager.Log(LogManager.LogLevel.Error, $"Không tải được model Slot 2: {ex.Message}", true, 8000);
                 }
                 finally
                 {

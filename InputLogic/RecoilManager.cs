@@ -6,12 +6,57 @@ namespace InputLogic
 {
     public static class RecoilManager
     {
+        public const int TapShotCount = 5;
         private static Thread? recoilThread;
         private static bool isRunning = false;
         public static int SelectedScopeIndex = -1; // -1 = no scope selected
         public static float TemporaryStrengthOffset = 0f;
 
+        private static (int Scope, int Slot, bool Tap, bool Enabled, bool Wheel)? recoilContext;
+
+        internal static bool SynchronizeContext(int scope, int slot, bool tap, bool enabled, bool wheel)
+        {
+            var next = (scope, slot, tap, enabled, wheel);
+            bool changed = recoilContext != next;
+            recoilContext = next;
+            if (changed || ((!enabled || !wheel) && TemporaryStrengthOffset != 0))
+                ResetTemporaryStrength();
+            return changed;
+        }
+
+        internal static float GetContinuousForce(int scopeNum, double elapsedSeconds)
+        {
+            double boundary = 0;
+            int stage = 4;
+            for (int i = 1; i <= 3; i++)
+            {
+                boundary += Math.Max(0, GetSetting($"Recoil Scope {scopeNum} S{i} Time", 0));
+                if (elapsedSeconds < boundary) { stage = i; break; }
+            }
+            float force = GetSetting($"Recoil Scope {scopeNum} S{stage} Force", 0);
+            bool wheel = Dictionary.toggleState.TryGetValue("Mouse Wheel Adjust", out var value) && (bool)value;
+            return force > 0 ? Math.Max(0, force + (wheel ? TemporaryStrengthOffset : 0)) : 0;
+        }
+
         
+        // Gentler continuous recoil. Tap impulses keep their existing distance.
+        internal static int AccumulateContinuousPull(ref float accumulator, float force)
+        {
+            if (!float.IsFinite(force) || force <= 0) return 0;
+            accumulator += force * 0.5f;
+            int pixels = (int)accumulator;
+            accumulator -= pixels;
+            return pixels;
+        }
+
+        public static void SetStageForce(int scope, string key, double value)
+        {
+            if (scope < 1 || scope > 6 || !key.StartsWith($"Recoil Scope {scope} S") || !key.EndsWith(" Force"))
+                throw new ArgumentException("Invalid recoil force setting");
+            Dictionary.sliderSettings[key] = value;
+            if (SelectedScopeIndex == scope - 1) ResetTemporaryStrength();
+        }
+
         public class RecoilSettings
         {
             public float Strength;
@@ -153,6 +198,7 @@ namespace InputLogic
             int tapShot = 0;
             long lastTapActivity = -1;
             int tapScope = -1, tapSlot = -1;
+            long lastError = -10000;
 
             while (isRunning)
             {
@@ -192,6 +238,13 @@ namespace InputLogic
                         int selectedScope = SelectedScopeIndex;
                         int currentSlot = Aimmy2.AILogic.AIManager.ActiveSlot;
                         bool tapMode = Dictionary.toggleState.TryGetValue($"Recoil Scope {selectedScope + 1} Tap", out var tap) && (bool)tap;
+                        bool wheel = Dictionary.toggleState.TryGetValue("Mouse Wheel Adjust", out var wheelValue) && (bool)wheelValue;
+                        if (SynchronizeContext(selectedScope, currentSlot, tapMode, true, wheel))
+                        {
+                            mouseButtonsHeld = false;
+                            dragStartTime = null;
+                            pixelAccumulator = 0;
+                        }
                         if (!rightButtonPressed || !tapMode || selectedScope != tapScope || currentSlot != tapSlot)
                         {
                             tapShot = 0;
@@ -218,7 +271,7 @@ namespace InputLogic
                                     double resetMs = GetBoundedTapSetting($"Recoil Scope {scopeNum} Tap Reset Time", 1, 0.1f, 10) * 1000;
                                     if (lastTapActivity < 0 || Environment.TickCount64 - lastTapActivity >= resetMs)
                                         tapShot = 0;
-                                    tapShot = Math.Min(tapShot + 1, 15);
+                                    tapShot = Math.Min(tapShot + 1, TapShotCount);
                                     int pull = (int)Math.Round(GetTapShotDistance(scopeNum, tapShot));
                                     if (pull > 0) MoveMouseDown(pull);
                                 }
@@ -229,68 +282,17 @@ namespace InputLogic
                                 Thread.Sleep(5);
                                 continue;
                             }
-                            float currentForce = 0;
-                            
-                            // Calculate elapsed time in seconds
                             double elapsedSeconds = (DateTime.Now - dragStartTime.GetValueOrDefault()).TotalSeconds;
-
-                            // Retrieve settings for all 4 stages
-                            // S1
-                            float s1Force = GetSetting($"Recoil Scope {scopeNum} S1 Force", 0);
-                            float s1Time = GetSetting($"Recoil Scope {scopeNum} S1 Time", 0);
-                            
-                            // S2
-                            float s2Force = GetSetting($"Recoil Scope {scopeNum} S2 Force", 0);
-                            float s2Time = GetSetting($"Recoil Scope {scopeNum} S2 Time", 0);
-                            
-                            // S3
-                            float s3Force = GetSetting($"Recoil Scope {scopeNum} S3 Force", 0);
-                            float s3Time = GetSetting($"Recoil Scope {scopeNum} S3 Time", 0);
-                            
-                            // S4
-                            float s4Force = GetSetting($"Recoil Scope {scopeNum} S4 Force", 0);
-                            float s4Time = GetSetting($"Recoil Scope {scopeNum} S4 Time", 0);
-
-                            // Determine current stage
-                            if (elapsedSeconds < s1Time)
-                            {
-                                // Stage 1
-                                currentForce = s1Force;
-                            }
-                            else if (elapsedSeconds < (s1Time + s2Time))
-                            {
-                                // Stage 2
-                                currentForce = s2Force;
-                            }
-                            else if (elapsedSeconds < (s1Time + s2Time + s3Time))
-                            {
-                                // Stage 3
-                                currentForce = s3Force;
-                            }
-                            else
-                            {
-                                // Stage 4 - Loop until release
-                                currentForce = s4Force;
-                            }
-                            
-                            // Apply Temporary Offset (Mouse Wheel Adjust) to the current force
-                            // We treat the offset as an addition to the force
-                             if (currentForce > 0) 
-                            {
-                                currentForce += TemporaryStrengthOffset;
-                                if (currentForce < 0) currentForce = 0;
-                            }
+                            float currentForce = GetContinuousForce(scopeNum, elapsedSeconds);
 
                             // Apply movement
                             if (currentForce > 0)
                             {
-                                pixelAccumulator += currentForce;
-                                int pixelsToMove = (int)pixelAccumulator;
+                                int pixelsToMove = AccumulateContinuousPull(ref pixelAccumulator, currentForce);
 
                                 if (pixelsToMove >= 1)
                                 {
                                     MoveMouseDown(pixelsToMove);
-                                    pixelAccumulator -= pixelsToMove;
                                 }
                             }
 
@@ -308,6 +310,7 @@ namespace InputLogic
                     }
                     else
                     {
+                        SynchronizeContext(SelectedScopeIndex, Aimmy2.AILogic.AIManager.ActiveSlot, false, false, false);
                         tapShot = 0;
                         lastTapActivity = -1;
                         mouseButtonsHeld = false;
@@ -315,9 +318,13 @@ namespace InputLogic
                         pixelAccumulator = 0;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore errors
+                    if (Environment.TickCount64 - lastError >= 10000)
+                    {
+                        lastError = Environment.TickCount64;
+                        Other.LogManager.Log(Other.LogManager.LogLevel.Error, $"Continuous/tap recoil loop: {ex}");
+                    }
                 }
 
                 Thread.Sleep(5); // Run loop ~200Hz
@@ -327,7 +334,7 @@ namespace InputLogic
         public static float GetTapShotDistance(int scopeNum, int shot)
         {
             float legacy = GetBoundedTapSetting($"Recoil Scope {scopeNum} Tap Distance", 40, 0, 2000);
-            float value = GetSetting($"Recoil Scope {scopeNum} Tap Shot {Math.Clamp(shot, 1, 15)}", -1);
+            float value = GetSetting($"Recoil Scope {scopeNum} Tap Shot {Math.Clamp(shot, 1, TapShotCount)}", -1);
             return float.IsFinite(value) && value >= 0 ? Math.Clamp(value, 0, 2000) : legacy;
         }
 

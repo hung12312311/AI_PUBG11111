@@ -1,0 +1,59 @@
+--- Custom/Other/KeybindNameManager.cs
+
++++ Upstream/Other/KeybindNameManager.cs
+
+@@ -17,11 +17,4 @@
+
+             { "D9", "9"},
+             { "D0", "0"},
+-
+-            { "Control", "Ctrl" },
+-            { "ControlKey", "Ctrl" },
+-            { "Shift", "Shift" },
+-            { "ShiftKey", "Shift" },
+-            { "Alt", "Alt" },
+-            { "Menu", "Alt" },
+ 
+             { "OemMinus", "-"},
+@@ -48,32 +41,14 @@
+
+         public static string ConvertToRegularKey(string keyName)
+         {
+-            if (string.IsNullOrEmpty(keyName)) return "";
+-            if (keyName == "None") return "None";
+-
+-            var parts = keyName.Split('+');
+-            var displayParts = new List<string>();
+-
+-            foreach (var part in parts)
++            try
+             {
+-                if (KeybindNames.TryGetValue(part, out var displayName))
+-                {
+-                    displayParts.Add(displayName);
+-                }
+-                else
+-                {
+-                    try
+-                    {
+-                        KeyConverter kc = new();
+-                        var key = (Key)kc.ConvertFromString(part)!;
+-                        displayParts.Add(KeybindNames.TryGetValue(key.ToString(), out var name) ? name : key.ToString());
+-                    }
+-                    catch (Exception)
+-                    {
+-                        displayParts.Add(part);
+-                    }
+-                }
++                KeyConverter kc = new();
++                var key = (Key)kc.ConvertFromString(keyName)!;
++                return KeybindNames.TryGetValue(key.ToString(), out var displayName) ? displayName : key.ToString();
+             }
+-
+-            return string.Join(" + ", displayParts);
++            catch (Exception)
++            {
++                return keyName;
++            }
+         }
+     }

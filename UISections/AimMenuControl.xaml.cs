@@ -1,4 +1,4 @@
-using Aimmy2.AILogic;
+﻿using Aimmy2.AILogic;
 using AILogic;
 using Aimmy2.Class;
 using Aimmy2.MouseMovementLibraries.GHubSupport;
@@ -58,6 +58,7 @@ namespace Aimmy2.Controls
         public AimMenuControl()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
         }
 
         public void Initialize(MainWindow mainWindow)
@@ -335,7 +336,12 @@ namespace Aimmy2.Controls
                 _mainWindow.AddDropdownItem(d, "SendInput");
                 _mainWindow.AddDropdownItem(d, "LG HUB");
                 _mainWindow.AddDropdownItem(d, "Razer Synapse (Require Razer Peripheral)");
-                _mainWindow.AddDropdownItem(d, "ddxoft Virtual Input Driver");
+                var dd = _mainWindow.AddDropdownItem(d, "ddxoft Virtual Input Driver");
+                dd.Selected += async (_, _) =>
+                {
+                    if (!await DdxoftMain.Load() && d.DropdownBox.SelectedItem == dd)
+                        d.DropdownBox.SelectedIndex = 0;
+                };
             }, tooltip: "Phương thức di chuyển chuột cho Slot 1.")
             .AddDropdown("Slot 1 Movement Path", d =>
             {
@@ -398,10 +404,15 @@ namespace Aimmy2.Controls
 
                     // Setup handlers
                     uiManager.DDI_LGHUB.Selected += async (s, e) => { if (!new LGHubMain().Load()) await ResetToMouseEvent(); };
+
+
                     uiManager.DDI_RazerSynapse.Selected += async (s, e) => { if (!await RZMouse.Load()) await ResetToMouseEvent(); };
-                    uiManager.DDI_ddxoft.Selected += async (s, e) => { if (!await DdxoftMain.Load()) await ResetToMouseEvent(); };
-                    uiManager.DDI_RazerSynapse.Selected += async (s, e) => { if (!await RZMouse.Load()) await ResetToMouseEvent(); };
-                    uiManager.DDI_ddxoft.Selected += async (s, e) => { if (!await DdxoftMain.Load()) await ResetToMouseEvent(); };
+                    var dd = uiManager.DDI_ddxoft;
+                    dd.Selected += async (_, _) =>
+                    {
+                        if (!await DdxoftMain.Load() && d.DropdownBox.SelectedItem == dd)
+                            d.DropdownBox.SelectedIndex = 0;
+                    };
                 }, tooltip: "Cách thức gửi tín hiệu di chuyển chuột (Dùng chung).")
                 .AddDropdown("Movement Path", d =>
                 {
@@ -656,7 +667,7 @@ namespace Aimmy2.Controls
                                  {
                                      Dictionary.toggleState["Weapon Recognition"] = false;
                                      _mainWindow.UpdateToggleUI(t, false);
-                                     MessageBox.Show("Failed to initialize Weapon Recognition. Please check your model settings.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                                     global::Other.LocalizedMessageBox.Show("Failed to initialize Weapon Recognition. Please check your model settings.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                                  }
                             }
                         };
@@ -1057,6 +1068,12 @@ namespace Aimmy2.Controls
                 })
                 .AddToggle("Show Detected Player", t => uiManager.T_ShowDetectedPlayer = t,
                     tooltip: "Vẽ một khung bao quanh các mục tiêu bị phát hiện trên màn hình.")
+                .AddToggle("Show Detection Performance", t =>
+                {
+                    t.ToggleTitle.Content = "Show FPS / Inference";
+                    t.IsEnabled = Dictionary.toggleState["Show Detected Player"];
+                    t.Loaded += (_, _) => t.IsEnabled = Dictionary.toggleState["Show Detected Player"];
+                }, tooltip: "Hiển thị FPS và thời gian suy luận trên ESP. Chỉ dùng khi bật Show Detected Player.")
                 .AddToggle("Show AI Confidence", t => uiManager.T_ShowAIConfidence = t,
                     tooltip: "Hiển thị mức độ tin cậy của AI đối với từng phát hiện (0-100%).")
                 .AddToggle("Show Tracers", t => uiManager.T_ShowTracers = t,
@@ -1349,9 +1366,8 @@ namespace Aimmy2.Controls
                 {
                     scopeDropdown.DropdownBox.Items.Add(new ComboBoxItem { Content = name });
                 }
-                scopeDropdown.DropdownBox.SelectedIndex = 0;
+                scopeDropdown.DropdownBox.SelectedIndex = Math.Clamp(RecoilManager.SelectedScopeIndex, 0, 5);
                 RecoilConfig.Children.Add(scopeDropdown);
-
                 // 6. Dynamic Panel
                 var dynamicSettingsPanel = new StackPanel();
                 RecoilConfig.Children.Add(dynamicSettingsPanel);
@@ -1379,12 +1395,12 @@ namespace Aimmy2.Controls
                             (bool)Dictionary.toggleState[tapKey] ? Visibility.Visible : Visibility.Collapsed;
                         tapSettingsPanel.Children.Add(CreateSlider($"Recoil Scope {scopeNum} Tap Reset Time", "Nghỉ để về phát 1 (s)", 0.1, 0.1, 0.1, 10,
                             "Ngừng bắn đủ thời gian này thì lần bấm tiếp theo dùng mức phát 1. Nhả ngắm hoặc đổi scope/slot cũng về phát 1."));
-                        for (int shot = 1; shot <= 15; shot++)
+                        for (int shot = 1; shot <= InputLogic.RecoilManager.TapShotCount; shot++)
                         {
                             string shotKey = $"Recoil Scope {scopeNum} Tap Shot {shot}";
                             Dictionary.sliderSettings[shotKey] = (double)RecoilManager.GetTapShotDistance(scopeNum, shot);
                             tapSettingsPanel.Children.Add(CreateSlider(shotKey, $"Khoảng kéo phát {shot}", 1, 1, 0, 2000,
-                                "Kéo một lần khi nhấn bắn trong lúc ngắm. Phát 16 trở đi dùng mức phát 15. Ngừng bắn đủ thời gian nghỉ, nhả ngắm, đổi scope/slot hoặc tắt Tap để về phát 1."));
+                                "Kéo một lần khi nhấn bắn trong lúc ngắm. Phát 6 trở đi dùng mức phát 5. Ngừng bắn đủ thời gian nghỉ, nhả ngắm, đổi scope/slot hoặc tắt Tap để về phát 1."));
                         }
                         // Function to create a section header that connects seamlessly with ASlider borders
                         Border CreateHeader(string text)
@@ -1414,7 +1430,8 @@ namespace Aimmy2.Controls
                             dynamicSettingsPanel.Children.Add(CreateHeader(headerText));
 
                             // Force Slider
-                            var forceSlider = CreateSlider(forceKey, "Lực ghì", 0.1, 1, 0, 200, tip + " - Lực ghì");
+                            var forceSlider = CreateSlider(forceKey, "Lực ghì", 0.01, 0.01, 0, 200, tip + " - Lực ghì giảm 50%; có thể nhập 0,01 / 0,1 / 0,5. Giá trị 0 không kéo.");
+                            forceSlider.Slider.ValueChanged += (_, _) => RecoilManager.SetStageForce(scopeNum, forceKey, forceSlider.Slider.Value);
                             dynamicSettingsPanel.Children.Add(forceSlider);
 
                             if (hasTime)
@@ -1461,7 +1478,7 @@ namespace Aimmy2.Controls
                     }
                 }
 
-                UpdateScopeSettings(0);
+                UpdateScopeSettings(scopeDropdown.DropdownBox.SelectedIndex);
 
                 scopeDropdown.DropdownBox.SelectionChanged += (s, e) =>
                 {

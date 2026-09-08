@@ -1,4 +1,4 @@
-using Aimmy2.Class;
+﻿using Aimmy2.Class;
 using Aimmy2.Theme;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -40,6 +40,7 @@ namespace Visuality
         private NoticeBar(bool isContainer)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             _isContainerInstance = isContainer;
 
             if (isContainer)
@@ -153,7 +154,7 @@ namespace Visuality
                         _containerInstance.Show();
                     }
 
-                    var notice = new NoticeItem(message, duration, type);
+                    var notice = new NoticeItem(global::Other.UiLanguage.Text(message), duration, type);
                     _notices?.Add(notice);
 
                     while (_notices?.Count > 4)

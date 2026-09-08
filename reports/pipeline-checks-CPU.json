@@ -1,0 +1,536 @@
+[
+  {
+    "Test": "Letterbox and negative monitor origin",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Stretch FOV640 to rectangular160x96",
+    "Status": "PASS"
+  },
+  {
+    "Test": "FP16 conversion",
+    "Status": "PASS"
+  },
+  {
+    "Test": "NCHW to NHWC/BGR/normalization",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Raw class-aware NMS and BNC",
+    "Status": "PASS"
+  },
+  {
+    "Test": "End-to-end keeps overlapping boxes and maps coordinates",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Ambiguous two-class output rejects guessing",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Multiple tensors and detection count",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_160x160_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        160,
+        160
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          525
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(160, 160)",
+    "Detections": 0,
+    "LoadAndRunMs": 161.6081
+  },
+  {
+    "Test": "CPU: best_160x160_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_160x160_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        160,
+        160
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(160, 160)",
+    "Detections": 0,
+    "LoadAndRunMs": 86.689
+  },
+  {
+    "Test": "CPU: best_160x160_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_256x256_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          1344
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 81.6269
+  },
+  {
+    "Test": "CPU: best_256x256_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_256x256_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 99.1705
+  },
+  {
+    "Test": "CPU: best_256x256_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_320x320_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        320,
+        320
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          2100
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(320, 320)",
+    "Detections": 0,
+    "LoadAndRunMs": 87.5468
+  },
+  {
+    "Test": "CPU: best_320x320_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_320x320_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        320,
+        320
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(320, 320)",
+    "Detections": 0,
+    "LoadAndRunMs": 92.4469
+  },
+  {
+    "Test": "CPU: best_320x320_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_416x416_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        416,
+        416
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          3549
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(416, 416)",
+    "Detections": 0,
+    "LoadAndRunMs": 90.708
+  },
+  {
+    "Test": "CPU: best_416x416_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_416x416_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        416,
+        416
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(416, 416)",
+    "Detections": 0,
+    "LoadAndRunMs": 94.9803
+  },
+  {
+    "Test": "CPU: best_416x416_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_512x512_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        512,
+        512
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          5376
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(512, 512)",
+    "Detections": 0,
+    "LoadAndRunMs": 100.5699
+  },
+  {
+    "Test": "CPU: best_512x512_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_512x512_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        512,
+        512
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(512, 512)",
+    "Detections": 0,
+    "LoadAndRunMs": 111.0714
+  },
+  {
+    "Test": "CPU: best_512x512_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_640x640_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          8400
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(640, 640)",
+    "Detections": 0,
+    "LoadAndRunMs": 105.4942
+  },
+  {
+    "Test": "CPU: best_640x640_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_640x640_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(640, 640)",
+    "Detections": 0,
+    "LoadAndRunMs": 107.1108
+  },
+  {
+    "Test": "CPU: best_640x640_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_dynamic_fp32_YOLO11.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        -1,
+        3,
+        -1,
+        -1
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          -1,
+          6,
+          -1
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 111.7046
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO11.onnx (64, 64)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO11.onnx (192, 192)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO11.onnx (224, 224)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO11.onnx (704, 704)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO11.onnx (640, 384)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_dynamic_fp32_YOLO26.onnx",
+    "Backend": "CPU",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        -1,
+        3,
+        -1,
+        -1
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          -1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 131.1468
+  },
+  {
+    "Test": "CPU: best_dynamic_fp32_YOLO26.onnx",
+    "Status": "FAIL",
+    "Error": "[ErrorCode:Fail] Non-zero status code returned while running TopK node. Name:'/model.23/TopK' Status Message: k argument [300] should not be greater than specified axis dim value [84]"
+  }
+]

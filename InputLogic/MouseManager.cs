@@ -55,8 +55,8 @@ namespace InputLogic
                     mouseUpAction = () => RZMouse.mouse_click(0);
                     break;
                 case "ddxoft Virtual Input Driver":
-                    mouseDownAction = () => DdxoftMain.ddxoftInstance.btn!(1);
-                    mouseUpAction = () => DdxoftMain.ddxoftInstance.btn(2);
+                    mouseDownAction = () => DdxoftMain.Button(1);
+                    mouseUpAction = () => DdxoftMain.Button(2);
                     break;
                 default:
                     mouseDownAction = () => mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
@@ -225,7 +225,7 @@ namespace InputLogic
                     break;
 
                 case "ddxoft Virtual Input Driver":
-                    DdxoftMain.ddxoftInstance.movR!(newPosition.X, newPosition.Y);
+                    DdxoftMain.Move(newPosition.X, newPosition.Y);
                     break;
 
                 default:

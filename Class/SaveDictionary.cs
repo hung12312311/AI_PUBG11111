@@ -45,18 +45,31 @@ namespace Class
                 }
 
                 var SavedJSONSettings = new Dictionary<string, dynamic>(dictionary);
+                // Preserve unknown keys written by newer/custom versions.
+                if (File.Exists(path))
+                {
+                    var previous = JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(File.ReadAllText(path));
+                    if (previous != null)
+                    {
+                        if (!previous.ContainsKey("ConfigVersion") && !File.Exists(path + ".v1.bak")) File.Copy(path, path + ".v1.bak", false);
+                        foreach (var pair in previous) if (!SavedJSONSettings.ContainsKey(pair.Key)) SavedJSONSettings[pair.Key] = pair.Value;
+                    }
+                }
+                SavedJSONSettings["ConfigVersion"] = 2;
                 if (!string.IsNullOrEmpty(SuggestedModel) && SavedJSONSettings.ContainsKey("Suggested Model"))
                 {
                     SavedJSONSettings["Suggested Model"] = SuggestedModel + ".onnx" + ExtraStrings;
                 }
 
                 string json = JsonConvert.SerializeObject(SavedJSONSettings, Formatting.Indented);
-                File.WriteAllText(path, json);
+                string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try { File.WriteAllText(temporary, json); File.Move(temporary, path, true); }
+                finally { if (File.Exists(temporary)) File.Delete(temporary); }
             }
             catch (Exception ex)
             {
                 // Only show error if it's not a directory creation issue
-                MessageBox.Show($"Error writing JSON, please note:\n{ex}");
+                global::Other.LocalizedMessageBox.Show($"Error writing JSON, please note:\n{ex}");
             }
         }
 
@@ -94,16 +107,8 @@ namespace Class
             }
             catch (Exception ex)
             {
-                // If there's an error loading, try to recreate the file with defaults
-                try
-                {
-                    WriteJSON(dictionary, path);
-                }
-                catch
-                {
-                    // Only show error if we can't even create a default file
-                    MessageBox.Show("Error loading JSON, please note:\n" + ex.ToString());
-                }
+                // A malformed file may contain valuable settings. Never overwrite it with defaults.
+                LogManager.Log(LogManager.LogLevel.Error, $"Không đọc được cấu hình {Path.GetFileName(path)}; file gốc được giữ nguyên. {ex.Message}");
             }
         }
     }

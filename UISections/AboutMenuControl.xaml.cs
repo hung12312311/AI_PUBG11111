@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
@@ -47,6 +47,7 @@ namespace Aimmy2.Controls
         public AboutMenuControl()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
         }
 
         public void Initialize(MainWindow mainWindow)

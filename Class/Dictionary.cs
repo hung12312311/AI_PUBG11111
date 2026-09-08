@@ -1,4 +1,4 @@
-using Visuality;
+﻿using Visuality;
 
 namespace Aimmy2.Class
 {
@@ -11,7 +11,7 @@ namespace Aimmy2.Class
             for (int scope = 1; scope <= 6; scope++)
             {
                 sliderSettings[$"Recoil Scope {scope} Tap Reset Time"] = 1.0;
-                for (int shot = 1; shot <= 15; shot++)
+                for (int shot = 1; shot <= InputLogic.RecoilManager.TapShotCount; shot++)
                     sliderSettings[$"Recoil Scope {scope} Tap Shot {shot}"] = -1.0;
             }
         }
@@ -60,6 +60,8 @@ namespace Aimmy2.Class
             { "Recoil Scope 6 Tap Distance", 40.0 },
             { "Suggested Model", ""},
             { "FOV Size", 640 },
+            { "Capture Size", 0 },
+            { "AI FPS Limit", 0 },
             { "Crosshair Size", 6 },
             { "Dynamic FOV Size", 200 },
             { "Mouse Sensitivity (+/-)", 0.80 },
@@ -171,6 +173,7 @@ namespace Aimmy2.Class
             { "Third Person Support", false },
             { "Masking", false },
             { "Show Detected Player", false },
+            { "Show Detection Performance", false },
             { "Cursor Check", false },
             { "Spray Mode", false },
             //{ "Only When Held", false },
@@ -233,6 +236,7 @@ namespace Aimmy2.Class
             { "Scope Capture Method", "GDI+" },
             { "Tracer Position", "Bottom" },
             { "Movement Path", "Cubic Bezier" },
+            { "ONNX Provider", "Legacy" },
             { "Slot 1 Image Size", "640" },
             { "Slot 2 Image Size", "640" },
             { "Slot 1 Target Class", "Best Confidence" },

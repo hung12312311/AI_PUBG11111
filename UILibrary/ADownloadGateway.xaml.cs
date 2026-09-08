@@ -16,6 +16,7 @@ namespace Aimmy2.UILibrary
         public ADownloadGateway(string Name, string Path)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             Title.Content = Name;
 
             DownloadButton.Click += async (s, e) =>

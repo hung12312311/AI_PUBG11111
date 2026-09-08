@@ -13,9 +13,12 @@ namespace Aimmy2.UILibrary
         public ASlider(string Text, string NotifierText, double ButtonSteps, string? tooltip = null)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
 
             SliderTitle.Content = Text;
+            global::Other.UiLanguage.Localize(SliderTitle);
             UnitLabel.Content = NotifierText;
+            global::Other.UiLanguage.Localize(UnitLabel);
 
             if (!string.IsNullOrEmpty(tooltip))
             {
@@ -23,6 +26,7 @@ namespace Aimmy2.UILibrary
                 if (TryFindResource("Tooltip") is System.Windows.Style style)
                     tt.Style = style;
                 ToolTip = tt;
+                global::Other.UiLanguage.Localize(tt);
             }
 
             Slider.ValueChanged += (s, e) =>
@@ -78,7 +82,7 @@ namespace Aimmy2.UILibrary
 
         private void Slider_MouseUp_1(object sender, MouseButtonEventArgs e)
         {
-            System.Windows.MessageBox.Show($"{Slider.Value:F2}");
+            global::Other.LocalizedMessageBox.Show($"{Slider.Value:F2}");
         }
     }
 }

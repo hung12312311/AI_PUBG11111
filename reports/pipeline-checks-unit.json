@@ -1,0 +1,38 @@
+[
+  {
+    "Test": "Startup legacy config without DirectML toggle",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Letterbox and negative monitor origin",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Stretch FOV640 to rectangular160x96",
+    "Status": "PASS"
+  },
+  {
+    "Test": "FP16 conversion",
+    "Status": "PASS"
+  },
+  {
+    "Test": "NCHW to NHWC/BGR/normalization",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Raw class-aware NMS and BNC",
+    "Status": "PASS"
+  },
+  {
+    "Test": "End-to-end keeps overlapping boxes and maps coordinates",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Ambiguous two-class output rejects guessing",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Multiple tensors and detection count",
+    "Status": "PASS"
+  }
+]

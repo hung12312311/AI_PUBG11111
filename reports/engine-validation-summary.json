@@ -1,0 +1,82 @@
+[
+  {
+    "Name": "best_320x320_fp32_YOLO11.engine",
+    "Passed": true,
+    "Input": "1x3x320x320",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_320x320_fp32_YOLO26.engine",
+    "Passed": true,
+    "Input": "1x3x320x320",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_416x416_fp32_YOLO11.engine",
+    "Passed": true,
+    "Input": "1x3x416x416",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_416x416_fp32_YOLO26.engine",
+    "Passed": true,
+    "Input": "1x3x416x416",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_512x512_fp32_YOLO11.engine",
+    "Passed": true,
+    "Input": "1x3x512x512",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_512x512_fp32_YOLO26.engine",
+    "Passed": true,
+    "Input": "1x3x512x512",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_640x640_fp32_YOLO11.engine",
+    "Passed": true,
+    "Input": "1x3x640x640",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_640x640_fp32_YOLO26.engine",
+    "Passed": true,
+    "Input": "1x3x640x640",
+    "Type": "kFLOAT",
+    "Dynamic": false,
+    "Error": null
+  },
+  {
+    "Name": "best_dynamic_fp32_YOLO11.engine",
+    "Passed": true,
+    "Input": "1x3x640x640",
+    "Type": "kFLOAT",
+    "Dynamic": true,
+    "Error": null
+  },
+  {
+    "Name": "best_dynamic_fp32_YOLO26.engine",
+    "Passed": true,
+    "Input": "1x3x640x640",
+    "Type": "kFLOAT",
+    "Dynamic": true,
+    "Error": null
+  }
+]

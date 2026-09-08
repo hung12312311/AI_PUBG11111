@@ -62,7 +62,7 @@ namespace MouseMovementLibraries.RazerSupport
             // And if that still doesn't work, then it will error again, which in this case would mean they don't have the driver for vs &&|| vc 2015–2022
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to initialize Razer mode.\n{ex.Message}\n\n" +
+                global::Other.LocalizedMessageBox.Show($"Failed to initialize Razer mode.\n{ex.Message}\n\n" +
                                 "Attempting to replace rzctl.dll with the release version...",
                                 "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 try
@@ -76,7 +76,7 @@ namespace MouseMovementLibraries.RazerSupport
                 }
                 catch (Exception innerEx)
                 {
-                    MessageBox.Show($"Failed to recover rzctl.dll.\n{innerEx.Message}",
+                    global::Other.LocalizedMessageBox.Show($"Failed to recover rzctl.dll.\n{innerEx.Message}",
                             "Recovery Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 return false;
@@ -84,7 +84,7 @@ namespace MouseMovementLibraries.RazerSupport
             /* Commenting this method out to replace with a more enhanced version
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to initialize Razer mode.\n{ex.Message}",
+                global::Other.LocalizedMessageBox.Show($"Failed to initialize Razer mode.\n{ex.Message}",
                         "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
@@ -107,7 +107,7 @@ namespace MouseMovementLibraries.RazerSupport
             if (Process.GetProcessesByName("RazerAppEngine").Any())
                 return true;
 
-            var response = MessageBox.Show("Razer Synapse is not running. Do you have it installed?",
+            var response = global::Other.LocalizedMessageBox.Show("Razer Synapse is not running. Do you have it installed?",
                                            "Aimmy - Razer Synapse", MessageBoxButton.YesNo);
             if (response == MessageBoxResult.No)
             {
@@ -117,7 +117,7 @@ namespace MouseMovementLibraries.RazerSupport
 
             if (!IsRazerSynapseInstalled())
             {
-                var install = MessageBox.Show("Razer Synapse is not installed. Would you like to install it?",
+                var install = global::Other.LocalizedMessageBox.Show("Razer Synapse is not installed. Would you like to install it?",
                                               "Aimmy - Razer Synapse", MessageBoxButton.YesNo);
                 if (install == MessageBoxResult.Yes)
                 {
@@ -236,7 +236,7 @@ namespace MouseMovementLibraries.RazerSupport
                 {
                     if (!vcRedistPromptRejected)
                     {
-                        var prompt = MessageBox.Show("VC++ 2015–2022 Redistributable (x64) is missing. Install now?",
+                        var prompt = global::Other.LocalizedMessageBox.Show("VC++ 2015–2022 Redistributable (x64) is missing. Install now?",
                                                      "Missing Dependency", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                         if (prompt == MessageBoxResult.Yes)
                         {

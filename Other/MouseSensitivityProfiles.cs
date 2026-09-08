@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using System.Windows;
 using Aimmy2.UILibrary;
@@ -24,6 +24,7 @@ internal static class MouseSensitivityProfiles
     {
         string capture = (string)State.dropdownState["Screen Capture Method"];
         if (capture is not ("GDI+" or "DirectX" or "WGC")) capture = "GDI+";
+        // Each capture backend has independent sensitivity values by image size and model slot.
         int size = 640;
         if (State.dropdownState.TryGetValue($"Slot {slot} Image Size", out var configured)
             && int.TryParse(Convert.ToString((object)configured), out int parsed) && parsed > 0) size = parsed;
@@ -131,7 +132,9 @@ internal static class MouseSensitivityProfiles
                 control.Slider.Value = value;
                 State.sliderSettings[LegacyKey(slot)] = value;
                 control.SliderTitle.Content = $"Slot {slot} Sens · {displayed.Capture} / {displayed.ImageSize}";
-                control.ToolTip = $"Slot {slot}: {displayed.Capture} → {displayed.ImageSize}. Độ nhạy được lưu riêng cho tổ hợp này.";
+                global::Other.UiLanguage.Localize(control.SliderTitle);
+                control.ToolTip = $"{displayed.Capture} → {displayed.ImageSize} px\nSensitivity is saved separately for each capture method, image size and model.";
+                global::Other.UiLanguage.Localize(control);
             }
             finally { refreshing = false; }
         }

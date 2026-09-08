@@ -1,0 +1,62 @@
+--- Custom/Visuality/FOV.xaml.cs
+
++++ Upstream/Visuality/FOV.xaml.cs
+
+@@ -1,7 +1,5 @@
+
+ using Aimmy2.Class;
+ using Aimmy2.Theme;
+-using Aimmy2.UILibrary;
+ using Class;
+-using Other;
+ using System.Runtime.InteropServices;
+ using System.Windows;
+@@ -36,11 +34,4 @@
+
+             PropertyChanger.ReceiveColor = UpdateFOVColor;
+             PropertyChanger.ReceiveFOVSize = UpdateFOVSize;
+-            IsVisibleChanged += (_, _) =>
+-            {
+-                if (!IsVisible) return;
+-                FovSettings.Synchronize(FovSettings.ImageSize);
+-                UpdateFOVSize(Convert.ToDouble(Dictionary.sliderSettings["FOV Size"]));
+-            };
+-            UpdateFOVSize(Convert.ToDouble(Dictionary.sliderSettings["FOV Size"]));
+         }
+ 
+@@ -99,5 +90,5 @@
+
+ 
+                 // Maximize to cover entire display
+-                // Keep Normal: explicit monitor bounds provide full-screen coverage without activation.
++                this.WindowState = WindowState.Maximized;
+ 
+                 // Center the FOV circle on the current display
+@@ -106,10 +97,9 @@
+
+ 
+                 FOVStrictEnclosure.Margin = new Thickness(
+-                    centerX - 320,  // Half the fixed overlay container, not the FOV diameter.
++                    centerX - 320,  // 320 = half of 640 (FOV size)
+                     centerY - 320,
+                     0, 0);
+ 
+                 // Force layout update
+-                UpdateFOVSize(Convert.ToDouble(Dictionary.sliderSettings["FOV Size"]));
+                 this.UpdateLayout();
+ 
+@@ -130,11 +120,6 @@
+
+         public void UpdateFOVSize(double newdouble)
+         {
+-            double pixels = Math.Clamp(newdouble, 10, FovSettings.ImageSize);
+-            Circle.BeginAnimation(WidthProperty, null);
+-            Circle.BeginAnimation(HeightProperty, null);
+-            RectangleShape.BeginAnimation(WidthProperty, null);
+-            RectangleShape.BeginAnimation(HeightProperty, null);
+-            Circle.Width = RectangleShape.Width = pixels / WinAPICaller.scalingFactorX;
+-            Circle.Height = RectangleShape.Height = pixels / WinAPICaller.scalingFactorY;
++            Circle.Width = Circle.Height = newdouble;
++            RectangleShape.Width = RectangleShape.Height = newdouble;
+         }
+ 

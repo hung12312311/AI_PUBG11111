@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -29,6 +29,7 @@ namespace Aimmy2.Controls
         public ModelMenuControl()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
         }
 
         public void Initialize(MainWindow mainWindow)

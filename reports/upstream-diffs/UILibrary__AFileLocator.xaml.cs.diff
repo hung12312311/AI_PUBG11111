@@ -1,0 +1,93 @@
+--- Custom/UILibrary/AFileLocator.xaml.cs
+
++++ Upstream/UILibrary/AFileLocator.xaml.cs
+
+@@ -15,5 +15,4 @@
+
+         private string OFDFilter = "All files (*.*)|*.*";
+         private string DefaultLocationExtension = "";
+-        public event System.Action<string>? FileChanged;
+ 
+         public AFileLocator(string title, string dictionary_path, string FileFilter = "All files (*.*)|*.*", string DLExtension = "")
+@@ -23,54 +22,8 @@
+
+ 
+             main_dictionary_path = dictionary_path;
+-            string fullPath = Dictionary.filelocationState[main_dictionary_path];
+-            FileLocationTextbox.Text = GetDisplayPath(fullPath);
++            FileLocationTextbox.Text = Dictionary.filelocationState[main_dictionary_path];
+ 
+             OFDFilter = FileFilter;
+             DefaultLocationExtension = DLExtension;
+-        }
+-
+-        private string GetDisplayPath(string fullPath)
+-        {
+-            try
+-            {
+-                string baseDir = Directory.GetCurrentDirectory();
+-                if (fullPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+-                {
+-                    return fullPath.Substring(baseDir.Length).TrimStart('\\', '/');
+-                }
+-            }
+-            catch { }
+-            return fullPath;
+-        }
+-
+-        private string GetRelativePath(string fullPath)
+-        {
+-            try
+-            {
+-                string baseDir = Directory.GetCurrentDirectory();
+-                if (fullPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+-                {
+-                    // Trả về đường dẫn tương đối
+-                    return fullPath.Substring(baseDir.Length).TrimStart('\\', '/');
+-                }
+-            }
+-            catch { }
+-            // Nếu không nằm trong thư mục base, giữ nguyên đường dẫn tuyệt đối
+-            return fullPath;
+-        }
+-
+-        private string GetAbsolutePath(string path)
+-        {
+-            try
+-            {
+-                // Nếu đã là đường dẫn tuyệt đối, trả về nguyên
+-                if (Path.IsPathRooted(path))
+-                    return path;
+-                
+-                // Nếu là đường dẫn tương đối, kết hợp với base directory
+-                return Path.Combine(Directory.GetCurrentDirectory(), path);
+-            }
+-            catch { }
+-            return path;
+         }
+ 
+@@ -85,21 +38,7 @@
+
+             if (openFileDialog.ShowDialog() == true)
+             {
+-                string selectedPath = openFileDialog.FileName;
+-                
+-                // Hiển thị đường dẫn tương đối
+-                FileLocationTextbox.Text = GetDisplayPath(selectedPath);
+-                
+-                // Lưu đường dẫn tương đối để portable
+-                Dictionary.filelocationState[main_dictionary_path] = GetRelativePath(selectedPath);
+-                
+-                // Gửi đường dẫn tuyệt đối cho FileChanged event
+-                FileChanged?.Invoke(selectedPath);
++                FileLocationTextbox.Text = openFileDialog.FileName;
++                Dictionary.filelocationState[main_dictionary_path] = openFileDialog.FileName;
+             }
+-        }
+-
+-        public void SetFilePath(string path)
+-        {
+-            FileLocationTextbox.Text = GetDisplayPath(path);
+-            Dictionary.filelocationState[main_dictionary_path] = GetRelativePath(path);
+         }
+     }

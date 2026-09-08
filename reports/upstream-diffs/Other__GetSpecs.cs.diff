@@ -1,0 +1,13 @@
+--- Custom/Other/GetSpecs.cs
+
++++ Upstream/Other/GetSpecs.cs
+
+@@ -1,6 +1,5 @@
+
+-using System;
+ using System.Management;
++using Visuality;
+ using Vortice.DXGI;
+-using Visuality;
+ 
+ namespace Aimmy2.Class

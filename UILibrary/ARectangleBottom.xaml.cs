@@ -8,6 +8,7 @@
         public ARectangleBottom()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
         }
     }
 }

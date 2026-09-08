@@ -1,4 +1,4 @@
-using Aimmy2.AILogic;
+﻿using Aimmy2.AILogic;
 using AILogic;
 using Aimmy2.Class;
 using Aimmy2.MouseMovementLibraries.GHubSupport;
@@ -9,6 +9,7 @@ using Other;
 using Class;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using UILibrary;
 using Visuality;
 using LogLevel = Other.LogManager.LogLevel;
@@ -43,6 +44,10 @@ namespace Aimmy2.Controls
         public SettingsMenuControl()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
+            Loaded += (_, _) => { _sizeRefreshTimer.Start(); RefreshLoadedImageSizes(); };
+            Unloaded += (_, _) => _sizeRefreshTimer.Stop();
+            _sizeRefreshTimer.Tick += (_, _) => RefreshLoadedImageSizes();
         }
 
         public void Initialize(MainWindow mainWindow)
@@ -308,6 +313,7 @@ namespace Aimmy2.Controls
                 } catch (Exception ex) { LogManager.Log(LogLevel.Error, $"Lỗi khi đổi Image Size: {ex.Message}"); }
                 finally { FileManager.CurrentlyLoadingModel = false; }
             }
+            MouseSensitivityProfiles.NotifyChanged();
         }
 
         private void LoadSettingsConfig()
@@ -321,6 +327,34 @@ namespace Aimmy2.Controls
                     uiManager.AT_SettingsMenu = t;
                     t.Minimize.Click += (s, e) => TogglePanel("Settings Menu", SettingsConfigPanel);
                 })
+                .AddDropdown("Language", d =>
+                {
+                    d.Name = "LanguageSelector";
+                    var dark = new SolidColorBrush(Color.FromRgb(31,29,41));
+                    d.DropdownBox.Resources[SystemColors.WindowBrushKey] = dark;
+                    var languageStyle = new Style(typeof(ComboBoxItem));
+                    languageStyle.Setters.Add(new Setter(Control.BackgroundProperty, dark));
+                    languageStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+                    var border = new FrameworkElementFactory(typeof(Border));
+                    border.SetBinding(Border.BackgroundProperty,new System.Windows.Data.Binding("Background") { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.TemplatedParent) });
+                    border.SetValue(Border.PaddingProperty,new Thickness(10,8,10,8));
+                    var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+                    presenter.SetValue(ContentPresenter.ContentSourceProperty,"Content");
+                    border.AppendChild(presenter);
+                    languageStyle.Setters.Add(new Setter(Control.TemplateProperty,new ControlTemplate(typeof(ComboBoxItem)) { VisualTree = border }));
+                    var highlight = new Trigger { Property = ComboBoxItem.IsHighlightedProperty, Value = true };
+                    highlight.Setters.Add(new Setter(Control.BackgroundProperty,new SolidColorBrush(Color.FromRgb(65,55,89))));
+                    languageStyle.Triggers.Add(highlight);
+                    d.DropdownBox.ItemContainerStyle = languageStyle;
+                    d.DropdownBox.Items.Add(new ComboBoxItem { Content = "English" });
+                    d.DropdownBox.Items.Add(new ComboBoxItem { Content = "Tiếng Việt" });
+                    d.DropdownBox.SelectedIndex = UiLanguage.Current.Code == "vi" ? 1 : 0;
+                    d.DropdownBox.SelectionChanged += (_, _) =>
+                    {
+                        try { UiLanguage.Current.SetLanguage(d.DropdownBox.SelectedIndex == 1 ? "vi" : "en"); }
+                        catch (Exception ex) { global::Other.LocalizedMessageBox.Show("Không lưu được ngôn ngữ: " + ex.Message); }
+                    };
+                }, tooltip: "Chọn ngôn ngữ giao diện. Thay đổi được áp dụng ngay và lưu cho lần mở sau.")
                 .AddToggle("Collect Data While Playing", t => uiManager.T_CollectDataWhilePlaying = t,
                     tooltip: "Lưu ảnh chụp màn hình khi phát hiện mục tiêu để huấn luyện AI mới.")
                 .AddToggle("Auto Label Data", t => uiManager.T_AutoLabelData = t,
@@ -339,19 +373,19 @@ namespace Aimmy2.Controls
                 .AddSlider("Window Height", "Pixels", 1, 10, 444, 1080, s => 
                 {
                     // Initialize with current height
-                    s.Slider.Value = Application.Current.MainWindow.Height;
+                    s.Slider.Value = _mainWindow!.Height;
                     s.Slider.ValueChanged += (sender, e) => 
                     {
-                        Application.Current.MainWindow.Height = s.Slider.Value;
+                        _mainWindow!.Height = s.Slider.Value;
                         Dictionary.sliderSettings["WindowHeight"] = s.Slider.Value;
                     };
                 }, tooltip: "Điều chỉnh chiều cao cửa sổ ứng dụng.")
                 .AddSlider("Window Width", "Pixels", 1, 10, 670, 1920, s => 
                 {
-                    s.Slider.Value = Application.Current.MainWindow.Width;
+                    s.Slider.Value = _mainWindow!.Width;
                     s.Slider.ValueChanged += (sender, e) => 
                     {
-                        Application.Current.MainWindow.Width = s.Slider.Value;
+                        _mainWindow!.Width = s.Slider.Value;
                         Dictionary.sliderSettings["WindowWidth"] = s.Slider.Value;
                     };
                 }, tooltip: "Điều chỉnh chiều rộng cửa sổ ứng dụng.")
@@ -517,6 +551,22 @@ namespace Aimmy2.Controls
             _mainWindow!.uiManager.D_MouseMovementMethod!.DropdownBox.SelectedIndex = 0;
         }
 
+        private readonly System.Windows.Threading.DispatcherTimer _sizeRefreshTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+        public void RefreshLoadedImageSizes()
+        {
+            if (FileManager.CurrentlyLoadingModel) return;
+            var manager = FileManager.AIManager;
+            if (manager == null) return;
+            foreach (int slot in new[] { 1, 2 })
+            {
+                if (!manager.TryGetModelMetadata(slot, out var metadata) || metadata == null) continue;
+                var size = metadata.ResolveSize(manager.GetSlotImageSize(slot));
+                UpdateImageSizeDropdown(size.Width.ToString(), slot);
+                var control = slot == 1 ? _mainWindow?.uiManager.D_Slot1ImageSize : _mainWindow?.uiManager.D_Slot2ImageSize;
+                if (control != null) control.DropdownBox.IsEnabled = metadata.Dynamic && metadata.Format == "ONNX";
+            }
+        }
+
         private bool _updatingImageSizeDropdown;
         public void UpdateImageSizeDropdown(string newSize, int slot)
         {
@@ -525,6 +575,8 @@ namespace Aimmy2.Controls
             {
                 var dropdown = slot == 1 ? _mainWindow?.uiManager.D_Slot1ImageSize : _mainWindow?.uiManager.D_Slot2ImageSize;
                 if (dropdown == null) return;
+                if (!dropdown.DropdownBox.Items.OfType<ComboBoxItem>().Any(x => x.Content?.ToString() == newSize))
+                    dropdown.DropdownBox.Items.Add(new ComboBoxItem { Content = newSize });
                 for (int i = 0; i < dropdown.DropdownBox.Items.Count; i++)
                 {
                     if ((dropdown.DropdownBox.Items[i] as ComboBoxItem)?.Content?.ToString() != newSize) continue;
@@ -603,6 +655,7 @@ namespace Aimmy2.Controls
 
         public void Dispose()
         {
+            _sizeRefreshTimer.Stop();
             DisplayManager.DisplayChanged -= OnDisplayChanged;
             AIManager.ClassesUpdated -= OnClassesChanged;
             _mainWindow?.uiManager.DisplaySelector?.Dispose();

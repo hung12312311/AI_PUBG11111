@@ -1,0 +1,12 @@
+--- Custom/UILibrary/ADownloadGateway.xaml
+
++++ Upstream/UILibrary/ADownloadGateway.xaml
+
+@@ -22,5 +22,5 @@
+
+                 <Label x:Name="Title"
+                        Foreground="White"
+-                       Content="Làm mới"
++                       Content="Refresh"
+                        FontFamily="{StaticResource Atkinson Hyperlegible}"
+                        VerticalContentAlignment="Center"

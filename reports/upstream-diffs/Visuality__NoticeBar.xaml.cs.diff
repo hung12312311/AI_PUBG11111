@@ -1,0 +1,69 @@
+--- Custom/Visuality/NoticeBar.xaml.cs
+
++++ Upstream/Visuality/NoticeBar.xaml.cs
+
+@@ -22,7 +22,4 @@
+
+ 
+         private const double ProgressBarMaxWidth = 500;
+-        private static readonly Dictionary<string, long> _lastNotices = new();
+-        private static long _lastNoticeTime;
+-        private static int _pendingNotices;
+ 
+         protected override void OnSourceInitialized(EventArgs e)
+@@ -66,5 +63,5 @@
+
+         private async void CreateStandaloneNotice(string text, int waitingTime, NoticeType type)
+         {
+-            Show(text, waitingTime, type);
++            Application.Current.Dispatcher.Invoke(() => Show(text, waitingTime, type));
+             Hide();
+             await Task.Delay(100);
+@@ -126,20 +123,6 @@
+
+         public static void Show(string message, int duration = 4000, NoticeType type = NoticeType.Info)
+         {
+-            var dispatcher = Application.Current?.Dispatcher;
+-            if (dispatcher == null || dispatcher.HasShutdownStarted) return;
+-            lock (_instanceLock)
+-            {
+-                long now = Environment.TickCount64;
+-                if (_pendingNotices >= 3 || now - _lastNoticeTime < 500
+-                    || (_lastNotices.TryGetValue(message, out var last) && now - last < 10000)) return;
+-                if (_lastNotices.Count >= 256) _lastNotices.Clear();
+-                _lastNotices[message] = now;
+-                _lastNoticeTime = now;
+-                _pendingNotices++;
+-            }
+-            dispatcher.BeginInvoke(new Action(() =>
+-            {
+-                try
+-                {
++            Application.Current.Dispatcher.Invoke(() =>
++            {
+                 lock (_instanceLock)
+                 {
+@@ -157,5 +140,5 @@
+
+                     _notices?.Add(notice);
+ 
+-                    while (_notices?.Count > 4)
++                    while (_notices?.Count > 8)
+                     {
+                         _notices.RemoveAt(0);
+@@ -166,13 +149,9 @@
+
+                         DispatcherPriority.Loaded);
+                 }
+-                }
+-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
+-                finally { lock (_instanceLock) _pendingNotices--; }
+-            }));
++            });
+         }
+ 
+         private void StartProgressAnimation(NoticeItem notice)
+         {
+-            if (_notices == null || !_notices.Contains(notice) || notice.IsRemoving || notice.IsExpired(DateTime.Now)) return;
+             var container = NoticesContainer.ItemContainerGenerator.ContainerFromItem(notice) as ListBoxItem;
+             if (container == null)

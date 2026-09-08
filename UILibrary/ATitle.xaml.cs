@@ -10,8 +10,10 @@ namespace Aimmy2.UILibrary
         public ATitle(string Text, bool MinimizableMenu = false)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
 
             LabelTitle.Content = Text;
+            global::Other.UiLanguage.Localize(LabelTitle);
 
             if (MinimizableMenu)
             {

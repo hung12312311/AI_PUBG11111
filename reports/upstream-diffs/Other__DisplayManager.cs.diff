@@ -1,0 +1,33 @@
+--- Custom/Other/DisplayManager.cs
+
++++ Upstream/Other/DisplayManager.cs
+
+@@ -84,5 +84,6 @@
+
+         {
+             // Add delay to ensure system has updated display info
+-            Task.Delay(1000).ContinueWith(t => {
++            Task.Delay(1000).ContinueWith(t =>
++            {
+                 ForceRefresh();
+             });
+@@ -331,18 +332,4 @@
+
+                     {
+                         Dictionary.DetectedPlayerOverlay.ForceReposition();
+-                    });
+-                }
+-            }
+-            catch (Exception ex)
+-            {
+-            }
+-
+-            try
+-            {
+-                if (Dictionary.CrosshairWindow != null)
+-                {
+-                    Application.Current.Dispatcher.Invoke(() =>
+-                    {
+-                        Dictionary.CrosshairWindow.ForceReposition();
+                     });
+                 }

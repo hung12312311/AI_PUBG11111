@@ -1,0 +1,159 @@
+--- Custom/InputLogic/MouseManager.cs
+
++++ Upstream/InputLogic/MouseManager.cs
+
+@@ -7,5 +7,4 @@
+
+ using System.Drawing;
+ using System.Runtime.InteropServices;
+-using Aimmy2.AILogic;
+ 
+ namespace InputLogic
+@@ -13,6 +12,6 @@
+
+     internal class MouseManager
+     {
+-        private static double ScreenWidth => DisplayManager.ScreenWidth;
+-        private static double ScreenHeight => DisplayManager.ScreenHeight;
++        private static readonly double ScreenWidth = WinAPICaller.ScreenWidth;
++        private static readonly double ScreenHeight = WinAPICaller.ScreenHeight;
+ 
+         private static DateTime LastClickTime = DateTime.MinValue;
+@@ -37,5 +36,5 @@
+
+         private static (Action down, Action up) GetMouseActions()
+         {
+-            string mouseMovementMethod = Dictionary.dropdownState["Mouse Movement Method"];
++            string mouseMovementMethod = AimSettings.MouseMovementMethod;
+             Action mouseDownAction;
+             Action mouseUpAction;
+@@ -68,8 +67,8 @@
+
+         }
+ 
+-        public static void DoTriggerClick(RectangleF? detectionBox = null)
+-        {
+-            // NEW: Only trigger if the toggle is ON and the specific key is held.
+-            if (!Dictionary.toggleState["Auto Trigger"] || !InputBindingManager.IsHoldingBinding("Auto Click Keybind"))
++        public static async Task DoTriggerClick(RectangleF? detectionBox = null)
++        {
++            // there was a toggle for this, but i realized if it was off, it would never stop spraying. - T
++            if (!(InputBindingManager.IsHoldingBinding("Aim Keybind") || InputBindingManager.IsHoldingBinding("Second Aim Keybind")))
+             {
+                 ResetSprayState();
+@@ -78,7 +77,7 @@
+
+ 
+ 
+-            if (Dictionary.toggleState["Spray Mode"])
+-            {
+-                if (Dictionary.toggleState["Cursor Check"])
++            if (AimSettings.SprayMode)
++            {
++                if (AimSettings.CursorCheck)
+                 {
+                     Point mousePos = WinAPICaller.GetCursorPosition();
+@@ -97,5 +96,5 @@
+
+             // Single click logic if spray mode off
+             int timeSinceLastClick = (int)(DateTime.UtcNow - LastClickTime).TotalMilliseconds;
+-            int triggerDelayMilliseconds = (int)(Dictionary.sliderSettings["Auto Trigger Delay"] * 1000);
++            int triggerDelayMilliseconds = AimSettings.AutoTriggerDelayMilliseconds;
+             const int clickDelayMilliseconds = 20;
+ 
+@@ -108,9 +107,6 @@
+
+ 
+             mouseDown.Invoke();
+-            Task.Run(async () =>
+-            {
+-                await Task.Delay(clickDelayMilliseconds);
+-                mouseUp.Invoke();
+-            });
++            await Task.Delay(clickDelayMilliseconds);
++            mouseUp.Invoke();
+ 
+             LastClickTime = DateTime.UtcNow;
+@@ -155,13 +151,5 @@
+
+             double aspectRatioCorrection = ScreenWidth / ScreenHeight;
+ 
+-            int ActiveSlot = AIManager.ActiveSlot; // Ensure AIManager.ActiveSlot is accessible
+-
+-            double sensitivity = Other.MouseSensitivityProfiles.Get(ActiveSlot);
+-            // Keep the existing response below .99 and positive damping at 1 without
+-            // allowing (1 - sensitivity) to become negative and reverse movement.
+-            sensitivity = Math.Clamp(sensitivity, 0.01, 1.0);
+-            if (sensitivity >= 0.99) sensitivity = 1.0 - 0.01 / (1.0 + sensitivity - 0.99);
+-            int MouseJitter = (int)Dictionary.sliderSettings[ActiveSlot == 1 ? "Slot 1 Mouse Jitter" : "Mouse Jitter"];
+-            
++            int MouseJitter = AimSettings.MouseJitter;
+             int jitterX = MouseRandom.Next(-MouseJitter, MouseJitter);
+             int jitterY = MouseRandom.Next(-MouseJitter, MouseJitter);
+@@ -171,28 +159,25 @@
+
+             Point newPosition = new Point(0, 0);
+ 
+-            string movementPath = Dictionary.dropdownState[ActiveSlot == 1 ? "Slot 1 Movement Path" : "Movement Path"];
+-
+-            switch (movementPath)
++            switch (AimSettings.MovementPath)
+             {
+                 case "Cubic Bezier":
+                     Point control1 = new Point(start.X + (end.X - start.X) / 3, start.Y + (end.Y - start.Y) / 3);
+                     Point control2 = new Point(start.X + 2 * (end.X - start.X) / 3, start.Y + 2 * (end.Y - start.Y) / 3);
+-                    newPosition = MovementPaths.CubicBezier(start, end, control1, control2, 1 - sensitivity);
++                    newPosition = MovementPaths.CubicBezier(start, end, control1, control2, 1 - AimSettings.MouseSensitivity);
+                     break;
+                 case "Linear":
+-                    newPosition = MovementPaths.Lerp(start, end, 1 - sensitivity);
++                    newPosition = MovementPaths.Lerp(start, end, 1 - AimSettings.MouseSensitivity);
+                     break;
+                 case "Exponential":
+-                    newPosition = MovementPaths.Exponential(start, end,
+-                        sensitivity >= 0.99 ? (1 - sensitivity) * 21 : 1 - (sensitivity - 0.2), 3.0);
++                    newPosition = MovementPaths.Exponential(start, end, 1 - (AimSettings.MouseSensitivity - 0.2), 3.0);
+                     break;
+                 case "Adaptive":
+-                    newPosition = MovementPaths.Adaptive(start, end, 1 - sensitivity);
++                    newPosition = MovementPaths.Adaptive(start, end, 1 - AimSettings.MouseSensitivity);
+                     break;
+                 case "Perlin Noise":
+-                    newPosition = MovementPaths.PerlinNoise(start, end, 1 - sensitivity, 20, 0.5);
++                    newPosition = MovementPaths.PerlinNoise(start, end, 1 - AimSettings.MouseSensitivity, 20, 0.5);
+                     break;
+                 default:
+-                    newPosition = MovementPaths.Lerp(start, end, 1 - sensitivity);
++                    newPosition = MovementPaths.Lerp(start, end, 1 - AimSettings.MouseSensitivity);
+                     break;
+             }
+@@ -206,10 +191,11 @@
+
+             newPosition.X = Math.Clamp(newPosition.X, -150, 150);
+             newPosition.Y = Math.Clamp(newPosition.Y, -150, 150);
++
+             newPosition.Y = (int)(newPosition.Y / aspectRatioCorrection);
++
+             newPosition.X += jitterX;
+             newPosition.Y += jitterY;
+-            string movementMethod = Dictionary.dropdownState[ActiveSlot == 1 ? "Slot 1 Mouse Movement Method" : "Mouse Movement Method"];
+-
+-            switch (movementMethod)
++
++            switch (AimSettings.MouseMovementMethod)
+             {
+                 case "SendInput":
+@@ -237,6 +223,5 @@
+
+             previousY = newPosition.Y;
+ 
+-            bool shouldResetSpray = !Dictionary.toggleState["Auto Trigger"] && !InputBindingManager.IsHoldingBinding("Auto Click Keybind");
+-            if (shouldResetSpray)
++            if (!AimSettings.AutoTrigger)
+             {
+                 ResetSprayState();
+@@ -245,3 +230,2 @@
+
+     }
+ }
+-

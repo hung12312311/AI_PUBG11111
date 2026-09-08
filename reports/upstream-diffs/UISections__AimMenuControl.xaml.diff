@@ -1,0 +1,20 @@
+--- Custom/UISections/AimMenuControl.xaml
+
++++ Upstream/UISections/AimMenuControl.xaml
+
+@@ -20,14 +20,10 @@
+
+                 <StackPanel x:Name="TriggerBot" />
+                 <StackPanel x:Name="ESPConfig" />
+-                <StackPanel x:Name="LootConfig" />
+             </StackPanel>
+             <StackPanel x:Name="ASP2"
+                         Grid.Column="1"
+                         Margin="5,0,10,0">
+-                <StackPanel x:Name="AimConfigSlot1" />
+                 <StackPanel x:Name="AimConfig" />
+                 <StackPanel x:Name="FOVConfig" />
+-                <StackPanel x:Name="WeaponSlotSystem" />
+-                <StackPanel x:Name="RecoilConfig" />
+             </StackPanel>
+         </Grid>

@@ -1,0 +1,14 @@
+--- Custom/Visuality/ConfigSaver.xaml.cs
+
++++ Upstream/Visuality/ConfigSaver.xaml.cs
+
+@@ -72,7 +72,6 @@
+
+         {
+             SaveDictionary.WriteJSON(Dictionary.sliderSettings
+-                                    .Where(kvp => kvp.Key != "Screen Capture Method" && kvp.Key != "Scope Capture Method"
+-                                        && kvp.Key != "Slot 1 Image Size" && kvp.Key != "Slot 2 Image Size")
+                                     .Concat(Dictionary.dropdownState)
++                                    .Where(kvp => kvp.Key != "Screen Capture Method")
+                                     .GroupBy(kvp => kvp.Key)
+                                     .ToDictionary(g => g.Key, g => g

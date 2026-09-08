@@ -1,0 +1,40 @@
+--- Custom/UISections/SettingsMenuControl.xaml
+
++++ Upstream/UISections/SettingsMenuControl.xaml
+
+@@ -9,14 +9,5 @@
+
+                   VerticalScrollBarVisibility="Auto"
+                   PanningMode="VerticalOnly">
+-        <StackPanel>
+-            <TextBlock x:Name="ErrorText" 
+-                       Foreground="#FF5555" 
+-                       TextWrapping="Wrap" 
+-                       Margin="15,10" 
+-                       Visibility="Collapsed" 
+-                       FontSize="13" 
+-                       FontWeight="SemiBold"
+-                       FontFamily="Segoe UI Semibold"/>
+-            <Grid>
++        <Grid>
+             <Grid.ColumnDefinitions>
+                 <ColumnDefinition></ColumnDefinition>
+@@ -28,15 +19,12 @@
+
+                 <StackPanel x:Name="SettingsConfig" />
+                 <StackPanel x:Name="DisplaySelectMenu" />
+-                <StackPanel x:Name="ThemeMenu" />
+             </StackPanel>
+             <StackPanel x:Name="SSP2"
+                         Grid.Column="1"
+                         Margin="5,0,10,0">
+-                <StackPanel x:Name="ModelSettingsSlot1" />
+-                <StackPanel x:Name="ModelSettingsSlot2" />
+-                <StackPanel x:Name="ModelSettingsGeneral" />
++                <StackPanel x:Name="ModelSettings" />
++                <StackPanel x:Name="ThemeMenu" />
+             </StackPanel>
+         </Grid>
+-        </StackPanel>
+     </ScrollViewer>
+ </UserControl>

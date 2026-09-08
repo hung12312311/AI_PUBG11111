@@ -69,6 +69,7 @@ namespace Aimmy2.UILibrary
         public AColorWheel()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             Loaded += AColorWheel_Loaded;
         }
 
@@ -774,7 +775,7 @@ namespace Aimmy2.UILibrary
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error clearing media: {ex.Message}");
+                global::Other.LocalizedMessageBox.Show($"Error clearing media: {ex.Message}");
             }
         }
 

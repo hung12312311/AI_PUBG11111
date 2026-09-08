@@ -1,4 +1,4 @@
-using Aimmy2.Class;
+﻿using Aimmy2.Class;
 using Aimmy2.Controls;
 using Aimmy2.MouseMovementLibraries.GHubSupport;
 using Aimmy2.Other;
@@ -111,6 +111,7 @@ namespace Aimmy2
 
         public MainWindow()
         {
+            global::Other.UiLanguage.Initialize();
             InitializeComponent();
             RestoreWindowSize();
             InitializeTrayIcon();
@@ -164,6 +165,11 @@ namespace Aimmy2
                     Application.Current.Shutdown();
                 });
 
+                contextMenu.Opening += (_, _) =>
+                {
+                    contextMenu.Items[0].Text = global::Other.UiLanguage.Text("Open");
+                    contextMenu.Items[1].Text = global::Other.UiLanguage.Text("Exit");
+                };
                 _notifyIcon.ContextMenuStrip = contextMenu;
                 _notifyIcon.DoubleClick += (s, e) => ShowWindow();
             }
@@ -335,7 +341,7 @@ namespace Aimmy2
         {
             if (Directory.GetCurrentDirectory().Contains("Temp"))
             {
-                MessageBox.Show(
+                global::Other.LocalizedMessageBox.Show(
                     "Xin chào, phát hiện bạn đang chạy Aimmy trong file zip. " +
                     "Vui lòng giải nén Aimmy để phần mềm hoạt động ổn định.\n\nCảm ơn.",
                     "Aimmy V2");
@@ -546,7 +552,7 @@ namespace Aimmy2
 
         private void ShowError(string message, Exception ex)
         {
-            MessageBox.Show($"{message}\n\nStack trace: {ex.StackTrace}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+            global::Other.LocalizedMessageBox.Show($"{message}\n\nStack trace: {ex.StackTrace}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         private void ApplyThemeGradients()
@@ -835,6 +841,7 @@ namespace Aimmy2
                         settingsMenu.Initialize(this);
                         LoadDropdownStates();
                         SettingsMenuControlInstance = settingsMenu;
+                        settingsMenu.RefreshLoadedImageSizes();
                         break;
 
                     case AboutMenuControl aboutMenu:
@@ -943,6 +950,9 @@ namespace Aimmy2
                 ["Show Detected Player"] = () =>
                 {
                     ShowHideDPWindow();
+                    if (toggleInstances.TryGetValue("Show Detection Performance", out var performanceToggle))
+                        performanceToggle.IsEnabled = Dictionary.toggleState["Show Detected Player"];
+                    DPWindow.RefreshPerformanceOverlay();
                     DPWindow.DetectedPlayerFocus.Visibility = GetToggleVisibility(title, true);
                     // Force reposition when showing the window
                     if (Dictionary.toggleState[title])
@@ -950,6 +960,7 @@ namespace Aimmy2
                         DPWindow.ForceReposition();
                     }
                 },
+                ["Show Detection Performance"] = () => DPWindow.RefreshPerformanceOverlay(),
                 ["Show AI Confidence"] = () => DPWindow.DetectedPlayerConfidence.Visibility = GetToggleVisibility(title, true),
                 ["Mouse Background Effect"] = () => { if (!Dictionary.toggleState[title]) RotaryGradient.Angle = 0; },
                 ["UI TopMost"] = () => Topmost = Dictionary.toggleState[title],
@@ -1119,8 +1130,7 @@ namespace Aimmy2
 
             dropdownitem.Selected += (s, e) =>
             {
-                var key = dropdown.DropdownTitle.Content?.ToString()
-                        ?? throw new NullReferenceException("dropdown.DropdownTitle.Content.ToString() is null");
+                var key = dropdown.SettingKey;
                 Dictionary.dropdownState[key] = title;
             };
 
@@ -1470,7 +1480,7 @@ namespace Aimmy2
             }
             catch (Exception e)
             {
-                MessageBox.Show($"Error loading config, possibly outdated\n{e}");
+                global::Other.LocalizedMessageBox.Show($"Error loading config, possibly outdated\n{e}");
             }
         }
 
@@ -1481,7 +1491,7 @@ namespace Aimmy2
                 var suggestedModel = model?.ToString() ?? "N/A";
                 if (suggestedModel != "N/A" && !string.IsNullOrEmpty(suggestedModel))
                 {
-                    MessageBox.Show(
+                    global::Other.LocalizedMessageBox.Show(
                         $"The creator of this model suggests you use this model:\n{suggestedModel}",
                         "Suggested Model - Aimmy");
                 }

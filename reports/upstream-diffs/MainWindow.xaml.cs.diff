@@ -1,0 +1,1521 @@
+--- Custom/MainWindow.xaml.cs
+
++++ Upstream/MainWindow.xaml.cs
+
+@@ -1,2 +1,3 @@
+
++using Aimmy2.AILogic;
+ using Aimmy2.Class;
+ using Aimmy2.Controls;
+@@ -9,5 +10,5 @@
+
+ using InputLogic;
+ using Other;
+-using System.Diagnostics;
++using System.Globalization;
+ using System.IO;
+ using System.Windows;
+@@ -17,6 +18,4 @@
+
+ using UILibrary;
+ using Visuality;
+-using Aimmy2.AILogic;
+-using Keys = System.Windows.Forms.Keys;
+ 
+ namespace Aimmy2
+@@ -24,20 +23,4 @@
+
+     public partial class MainWindow : Window
+     {
+-        private System.Windows.Forms.NotifyIcon _notifyIcon;
+-        private bool _isExplicitExit = false;
+-
+-        private bool _savedAimAssist = false;
+-        private bool _savedWeaponRecognition = false;
+-        private bool _cancelAimAssistDelayedActivation = false;
+-        private bool _cancelWeaponRecognitionDelayedActivation = false;
+-
+-        public void CancelDelayedActivation(string feature)
+-        {
+-            if (feature == "Aim Assist")
+-                _cancelAimAssistDelayedActivation = true;
+-            else if (feature == "Weapon Recognition")
+-                _cancelWeaponRecognitionDelayedActivation = true;
+-        }
+-
+         #region Managers and Windows
+ 
+@@ -65,18 +48,4 @@
+
+         });
+ 
+-        private static readonly Lazy<DetectedScopeWindow> _scopeWindow = new(() =>
+-        {
+-            var window = new DetectedScopeWindow();
+-            window.ForceReposition();
+-            return window;
+-        });
+-
+-        private static readonly Lazy<CrosshairWindow> _crosshairWindow = new(() =>
+-        {
+-            var window = new CrosshairWindow();
+-            window.ForceReposition();
+-            return window;
+-        });
+-
+         // Public accessors
+         internal InputBindingManager bindingManager => _bindingManager.Value;
+@@ -84,6 +53,4 @@
+
+         public static FOV FOVWindow => _fovWindow.Value;
+         public static DetectedPlayerWindow DPWindow => _dpWindow.Value;
+-        public static DetectedScopeWindow ScopeWindow => _scopeWindow.Value;
+-        public static CrosshairWindow CrosshairWindow => _crosshairWindow.Value;
+         public static GithubManager githubManager => _githubManager.Value;
+         public UI uiManager => _uiManager.Value;
+@@ -102,4 +69,5 @@
+
+         public double ActualFOV { get; set; } = 640;
+         private double _currentGradientAngle;
++        private bool _performanceHelperOpen;
+ 
+         // Menu names constant
+@@ -113,105 +81,11 @@
+
+         {
+             InitializeComponent();
+-            RestoreWindowSize();
+-            InitializeTrayIcon();
+-            _windowSizeSaveTimer.Tick += (_, _) => { _windowSizeSaveTimer.Stop(); SaveWindowSize(); };
+-            SizeChanged += (_, _) =>
+-            {
+-                if (!IsLoaded || WindowState != WindowState.Normal) return;
+-                _windowSizeSaveTimer.Stop();
+-                _windowSizeSaveTimer.Start();
+-            };
+-        }
+-
+-        private readonly System.Windows.Threading.DispatcherTimer _windowSizeSaveTimer = new()
+-        { Interval = TimeSpan.FromMilliseconds(400) };
+-        private string WindowSizePath => Path.Combine(AppContext.BaseDirectory, "bin", "window.cfg");
+-
+-        private void SaveWindowSize()
+-        {
+-            if (WindowState != WindowState.Normal || !double.IsFinite(Width) || !double.IsFinite(Height)) return;
++        }
++
++        private async void Window_Loaded(object sender, RoutedEventArgs e)
++        {
+             try
+             {
+-                Directory.CreateDirectory(Path.GetDirectoryName(WindowSizePath)!);
+-                File.WriteAllText(WindowSizePath + ".tmp", Newtonsoft.Json.JsonConvert.SerializeObject(
+-                    new { WindowWidth = Width, WindowHeight = Height }, Newtonsoft.Json.Formatting.Indented));
+-                File.Move(WindowSizePath + ".tmp", WindowSizePath, true);
+-            }
+-            catch (Exception ex) { LogManager.Log(LogManager.LogLevel.Warning, $"Cannot save window size: {ex.Message}"); }
+-        }
+-
+-        private void InitializeTrayIcon()
+-        {
+-            try
+-            {
+-                if (!System.IO.File.Exists("icon\\target.ico")) return;
+-
+-                _notifyIcon = new System.Windows.Forms.NotifyIcon
+-                {
+-                    Icon = new System.Drawing.Icon("icon\\target.ico"),
+-                    Visible = true,
+-                    Text = "Aimmy"
+-                };
+-
+-                var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+-                contextMenu.Items.Add("Open", null, (s, e) => ShowWindow());
+-                contextMenu.Items.Add("Exit", null, (s, e) =>
+-                {
+-                    _isExplicitExit = true;
+-                    InputLogic.LootManager.StopExternalLootProcesses();
+-                    // Ensure we clean up before shutting down
+-                    if (_notifyIcon != null) _notifyIcon.Visible = false;
+-                    Application.Current.Shutdown();
+-                });
+-
+-                _notifyIcon.ContextMenuStrip = contextMenu;
+-                _notifyIcon.DoubleClick += (s, e) => ShowWindow();
+-            }
+-            catch { /* Ignore tray icon errors to prevent startup crash */ }
+-        }
+-
+-
+-        private void ShowWindow()
+-        {
+-            Show();
+-            WindowState = WindowState.Normal;
+-            Activate();
+-        }
+-
+-        private void RestoreWindowSize()
+-        {
+-            try
+-            {
+-                // Synchronously attempt to read just the window size
+-                // This is a minimal read to prevent "pop-in" effect
+-                string configPath = File.Exists(WindowSizePath) ? WindowSizePath : "bin\\configs\\Default.cfg";
+-                if (File.Exists(configPath)) 
+-                {
+-                    string json = File.ReadAllText(configPath);
+-                    var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(json);
+-                    
+-                    if (settings != null)
+-                    {
+-                         if (settings.TryGetValue("WindowHeight", out dynamic h))
+-                             this.Height = Math.Clamp(Convert.ToDouble(h), 444, 1080);
+-                         if (settings.TryGetValue("WindowWidth", out dynamic w))
+-                             this.Width = Math.Clamp(Convert.ToDouble(w), 670, 1920);
+-                    }
+-                }
+-            }
+-            catch { /* If it fails, we fall back to default, no crash allowed here */ }
+-        }
+-
+-        private async void Window_Loaded(object sender, RoutedEventArgs e)
+-        {
+-            try
+-            {
+-                DisplayManager.Initialize();
+                 SaveDictionary.EnsureDirectoriesExist();
+-
+-                InputLogic.LootManager.StartExternalLootProcess();
+-
+-                // Load loot config and defaults from old INI
+-                InputLogic.LootManager.LoadDefaultsFromIni();
+ 
+                 InitializeMenus();
+@@ -230,47 +104,8 @@
+
+                 ApplyThemeGradients();
+                 ThemeManager.LoadMediaSettings();
+-
+-                // Task khôi phục kích hoạt sau khi vẽ giao diện xong (500ms)
+-                _ = Task.Run(async () =>
+-                {
+-                    await Task.Delay(500);
+-                    
+-                    await Application.Current.Dispatcher.InvokeAsync(() =>
+-                    {
+-                        if (!this.IsLoaded) return;
+-
+-                        if (_savedAimAssist && !_cancelAimAssistDelayedActivation)
+-                        {
+-                            if (Dictionary.lastLoadedModel != "N/A")
+-                            {
+-                                Dictionary.toggleState["Aim Assist"] = true;
+-                                if (uiManager.T_AimAligner != null)
+-                                {
+-                                    UpdateToggleUI(uiManager.T_AimAligner, true);
+-                                }
+-                                LogManager.Log(LogManager.LogLevel.Info, "Aim Assist tự động kích hoạt sau khi nạp mô hình.", true, 3000);
+-                            }
+-                        }
+-
+-                        if (_savedWeaponRecognition && !_cancelWeaponRecognitionDelayedActivation)
+-                        {
+-                            Dictionary.toggleState["Weapon Recognition"] = true;
+-                            if (uiManager.T_WeaponRecognition != null)
+-                            {
+-                                UpdateToggleUI(uiManager.T_WeaponRecognition, true);
+-                            }
+-                            
+-                            if (!WeaponSlotManager.Instance.IsInitialized)
+-                            {
+-                                WeaponSlotManager.Instance.Initialize();
+-                            }
+-                            LogManager.Log(LogManager.LogLevel.Info, "Weapon Recognition tự động kích hoạt sau khi nạp mô hình.", true, 3000);
+-                        }
+-                    });
+-                });
+             }
+             catch (Exception ex)
+             {
+-                ShowError($"Lỗi khi khởi động: {ex.Message}", ex);
++                ShowError($"Error during startup: {ex.Message}", ex);
+             }
+         }
+@@ -320,7 +155,4 @@
+
+             // Subscribe to display changes after everything is initialized
+             DisplayManager.DisplayChanged += OnDisplayChanged;
+-
+-            // Start Recoil Manager
+-            RecoilManager.Initialize();
+         }
+ 
+@@ -337,6 +169,6 @@
+
+             {
+                 MessageBox.Show(
+-                    "Xin chào, phát hiện bạn đang chạy Aimmy trong file zip. " +
+-                    "Vui lòng giải nén Aimmy để phần mềm hoạt động ổn định.\n\nCảm ơn.",
++                    "Hi, it is made aware that you are running Aimmy without extracting it from the zip file. " +
++                    "Please extract Aimmy from the zip file or Aimmy will not be able to run properly.\n\nThank you.",
+                     "Aimmy V2");
+             }
+@@ -348,16 +180,12 @@
+
+             var fov = FOVWindow;  // This triggers lazy initialization
+             var dpw = DPWindow;   // This triggers lazy initialization
+-            var crosshair = CrosshairWindow; // This triggers lazy initialization
+ 
+             // Ensure they're positioned on the current display
+             fov.ForceReposition();
+             dpw.ForceReposition();
+-            crosshair.ForceReposition();
+ 
+             // Set references in Dictionary
+             Dictionary.DetectedPlayerOverlay = dpw;
+             Dictionary.FOVWindow = fov;
+-            Dictionary.DetectedScopeOverlay = ScopeWindow;
+-            Dictionary.CrosshairWindow = crosshair;
+         }
+ 
+@@ -393,6 +221,5 @@
+
+                     (Dictionary.filelocationState, "bin\\filelocations.cfg"),
+                     (Dictionary.dropdownState, "bin\\dropdown.cfg"),
+-                    (Dictionary.toggleState, "bin\\toggles.cfg"),
+-                    (Dictionary.modelState, "bin\\models.cfg")
++                    (Dictionary.toggleState, "bin\\toggles.cfg")
+                 };
+ 
+@@ -403,37 +230,7 @@
+
+             });
+ 
+-            // Trích xuất cấu hình gốc trước khi tạm tắt
+-            _savedAimAssist = Dictionary.toggleState.TryGetValue("Aim Assist", out var aaVal) && (bool)aaVal;
+-            _savedWeaponRecognition = Dictionary.toggleState.TryGetValue("Weapon Recognition", out var wrVal) && (bool)wrVal;
+-
+-            // Tạm thời tắt để tránh lag lúc khởi động
+-            Dictionary.toggleState["Aim Assist"] = false;
+-            Dictionary.toggleState["Weapon Recognition"] = false;
+-
+-            string lastConfig = "Default.cfg";
+-            if (Dictionary.modelState.TryGetValue("LastLoadedConfig", out var configVal))
+-            {
+-                lastConfig = configVal?.ToString() ?? "Default.cfg";
+-            }
+-            Dictionary.lastLoadedConfig = lastConfig;
+-
+-            string lastConfigPath = Path.Combine("bin\\configs", lastConfig);
+-            if (!File.Exists(lastConfigPath))
+-            {
+-                lastConfigPath = "bin\\configs\\Default.cfg";
+-                Dictionary.lastLoadedConfig = "Default.cfg";
+-            }
+-
+             // Load these on UI thread since they might show notifications
+-            LoadConfig(lastConfigPath);
+-            CapturePreferences.Load();
+-            MouseSensitivityProfiles.Load();
+-            PriorityAimingConfig.Load();
+-            DisplayManager.LoadSavedDisplay();
++            LoadConfig();
+             ApplyThemeColorFromConfig();
+-            
+-            // Validate and restore models after configs are loaded
+-            await Task.Run(global::AILogic.CaptureManager.ValidateSavedCaptureMethods);
+-            await ValidateAndRestoreModels();
+         }
+ 
+@@ -462,11 +259,5 @@
+
+             {
+                 "Aim Keybind", "Second Aim Keybind", "Dynamic FOV Keybind",
+-                "Emergency Stop Keybind", "Model Switch Keybind",
+-                "Recoil Toggle Keybind",
+-                "Weapon Scan Keybind", "Weapon Slot 1 Keybind", "Weapon Slot 2 Keybind",
+-                "Auto Click Keybind",
+-                "Slot 1 Priority Key", "Slot 2 Priority Key",
+-                "Crosshair Hide Key 1",
+-                "Fast Loot Keybind"
++                "Emergency Stop Keybind", "Model Switch Keybind"
+             };
+ 
+@@ -488,14 +279,4 @@
+
+             PropertyChanger.PostNewFOVSize(ActualFOV);
+             PropertyChanger.PostColor((Color)ColorConverter.ConvertFromString(Dictionary.colorState["FOV Color"].ToString()));
+-
+-            // Crosshair settings
+-            if (Dictionary.colorState.TryGetValue("Crosshair Color", out var chColor))
+-            {
+-                PropertyChanger.PostCrosshairColor((Color)ColorConverter.ConvertFromString(chColor.ToString()));
+-            }
+-            if (Dictionary.sliderSettings.TryGetValue("Crosshair Size", out var chSize))
+-            {
+-                PropertyChanger.PostCrosshairSize(Convert.ToDouble(chSize));
+-            }
+ 
+             // Detected player window settings
+@@ -520,13 +301,4 @@
+
+                 }
+             }
+-
+-            // Restore Window Size
+-            RestoreWindowSize();
+-
+-            // Apply loaded toggle actions on startup
+-            foreach (var key in Dictionary.toggleState.Keys.ToList())
+-            {
+-                Toggle_Action(key);
+-            }
+         }
+ 
+@@ -535,5 +307,5 @@
+
+             if (_menuControls["AboutMenu"] is AboutMenuControl aboutMenu)
+             {
+-                aboutMenu.AboutSpecsControl.Content = "Đang tải cấu hình máy...";
++                aboutMenu.AboutSpecsControl.Content = "Loading system specs...";
+ 
+                 Task.Run(() =>
+@@ -547,5 +319,5 @@
+
+         private void ShowError(string message, Exception ex)
+         {
+-            MessageBox.Show($"{message}\n\nStack trace: {ex.StackTrace}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
++            MessageBox.Show($"{message}\n\nStack trace: {ex.StackTrace}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+ 
+@@ -583,4 +355,7 @@
+
+         private void InitializeFileManager(ModelMenuControl modelMenu)
+         {
++            FileManager.ModelLoaded -= OnModelLoaded;
++            FileManager.ModelLoaded += OnModelLoaded;
++
+             if (_fileManager == null)
+             {
+@@ -589,7 +364,5 @@
+
+                     modelMenu.SelectedModelNotifierControl,
+                     modelMenu.ConfigsListBoxControl,
+-                    modelMenu.SelectedConfigNotifierControl,
+-                    modelMenu.Slot1ModelListBoxControl,
+-                    modelMenu.Slot1NotifierControl));
++                    modelMenu.SelectedConfigNotifierControl));
+ 
+                 try
+@@ -601,4 +374,218 @@
+
+                 }
+             }
++        }
++
++        private void OnModelLoaded(AIManager manager)
++        {
++            if (!Dispatcher.CheckAccess())
++            {
++                Dispatcher.Invoke(() => OnModelLoaded(manager));
++                return;
++            }
++
++            if (!PerformanceHelperState.ShouldPrompt())
++            {
++                return;
++            }
++
++            ShowPerformanceHelper(manager, PerformanceHelperWindow.LaunchMode.CompactPrompt);
++        }
++
++        internal void ShowPerformanceHelper()
++        {
++            if (!Dispatcher.CheckAccess())
++            {
++                Dispatcher.Invoke(ShowPerformanceHelper);
++                return;
++            }
++
++            var manager = FileManager.AIManager;
++            if (manager == null || !manager.IsLoaded)
++            {
++                LogManager.Log(LogManager.LogLevel.Warning, "Load a model before opening the Performance Helper.", true, 3000);
++                return;
++            }
++
++            ShowPerformanceHelper(manager, PerformanceHelperWindow.LaunchMode.FullHelper);
++        }
++
++        private void ShowPerformanceHelper(AIManager manager, PerformanceHelperWindow.LaunchMode launchMode)
++        {
++            if (_performanceHelperOpen ||
++                !ReferenceEquals(FileManager.AIManager, manager) ||
++                !manager.IsLoaded)
++            {
++                return;
++            }
++
++            _performanceHelperOpen = true;
++            try
++            {
++                var helper = new PerformanceHelperWindow(this, manager, launchMode)
++                {
++                    Owner = this
++                };
++                helper.ShowDialog();
++            }
++            finally
++            {
++                _performanceHelperOpen = false;
++            }
++        }
++
++        internal async Task<bool> ChangeImageSizeAsync(string newSize)
++        {
++            if (string.IsNullOrWhiteSpace(newSize))
++                return false;
++
++            newSize = newSize.Trim();
++            if (!int.TryParse(newSize, NumberStyles.Integer, CultureInfo.InvariantCulture, out int requestedSize))
++                return false;
++
++            await FileManager.ModelOperationLock.WaitAsync();
++            FileManager.CurrentlyLoadingModel = true;
++            string? previousSize = null;
++            string? loadedModel = null;
++            string? modelPath = null;
++
++            try
++            {
++                if (FileManager.AIManager == null || Dictionary.lastLoadedModel == "N/A")
++                {
++                    Dictionary.dropdownState["Image Size"] = newSize;
++                    SettingsMenuControlInstance?.UpdateImageSizeDropdown(newSize);
++                    LogManager.Log(LogManager.LogLevel.Info, $"Image size set to {newSize}x{newSize} (no model loaded)", true, 2000);
++                    return true;
++                }
++
++                previousSize = Dictionary.dropdownState["Image Size"];
++                loadedModel = Dictionary.lastLoadedModel;
++                modelPath = Path.Combine("bin/models", loadedModel);
++                AIManager managerToReplace = FileManager.AIManager;
++                LogManager.Log(LogManager.LogLevel.Info, $"Image size changing to {newSize}");
++
++                managerToReplace.RequestSizeChange(requestedSize);
++                await Task.Delay(100);
++
++                FileManager.AIManager = null;
++                managerToReplace.Dispose();
++
++                Dictionary.dropdownState["Image Size"] = newSize;
++
++                var manager = new AIManager(modelPath);
++                bool loaded = await manager.InitializationTask;
++
++                if (loaded)
++                {
++                    FileManager.AIManager = manager;
++                    Dictionary.lastLoadedModel = loadedModel;
++                    string actualSize = AimSettings.ImageSize.ToString(CultureInfo.InvariantCulture);
++                    Dictionary.dropdownState["Image Size"] = actualSize;
++                    SettingsMenuControlInstance?.UpdateImageSizeDropdown(actualSize);
++
++                    if (actualSize == newSize)
++                    {
++                        LogManager.Log(LogManager.LogLevel.Info, $"Successfully changed image size to {actualSize}x{actualSize}", true, 2000);
++                        return true;
++                    }
++
++                    LogManager.Log(
++                        LogManager.LogLevel.Warning,
++                        $"Model loaded at {actualSize}x{actualSize}; requested {newSize}x{newSize} was not applied.",
++                        true,
++                        5000);
++                    return false;
++                }
++
++                manager.Dispose();
++                FileManager.AIManager = null;
++                Dictionary.dropdownState["Image Size"] = previousSize;
++                SettingsMenuControlInstance?.UpdateImageSizeDropdown(previousSize);
++                LogManager.Log(LogManager.LogLevel.Error, $"Model could not reload at {newSize}x{newSize}. Restoring {previousSize}x{previousSize}.", true, 5000);
++
++                var restoredManager = new AIManager(modelPath);
++                if (await restoredManager.InitializationTask)
++                {
++                    FileManager.AIManager = restoredManager;
++                    Dictionary.lastLoadedModel = loadedModel;
++                    string actualSize = AimSettings.ImageSize.ToString(CultureInfo.InvariantCulture);
++                    Dictionary.dropdownState["Image Size"] = actualSize;
++                    SettingsMenuControlInstance?.UpdateImageSizeDropdown(actualSize);
++                }
++                else
++                {
++                    restoredManager.Dispose();
++                    FileManager.AIManager = null;
++                    Dictionary.lastLoadedModel = "N/A";
++                }
++                return false;
++            }
++            catch (Exception ex)
++            {
++                if (!string.IsNullOrWhiteSpace(previousSize))
++                {
++                    Dictionary.dropdownState["Image Size"] = previousSize;
++                    SettingsMenuControlInstance?.UpdateImageSizeDropdown(previousSize);
++                }
++
++                LogManager.Log(LogManager.LogLevel.Error, $"Error changing image size: {ex.Message}", true, 5000);
++                if (FileManager.AIManager == null &&
++                    !string.IsNullOrWhiteSpace(modelPath) &&
++                    File.Exists(modelPath))
++                {
++                    try
++                    {
++                        var restoredManager = new AIManager(modelPath);
++                        if (await restoredManager.InitializationTask)
++                        {
++                            FileManager.AIManager = restoredManager;
++                            if (!string.IsNullOrWhiteSpace(loadedModel))
++                            {
++                                Dictionary.lastLoadedModel = loadedModel;
++                            }
++
++                            string actualSize = AimSettings.ImageSize.ToString(CultureInfo.InvariantCulture);
++                            Dictionary.dropdownState["Image Size"] = actualSize;
++                            SettingsMenuControlInstance?.UpdateImageSizeDropdown(actualSize);
++                        }
++                        else
++                        {
++                            restoredManager.Dispose();
++                            FileManager.AIManager = null;
++                            Dictionary.lastLoadedModel = "N/A";
++                        }
++                    }
++                    catch
++                    {
++                        Dictionary.lastLoadedModel = "N/A";
++                    }
++                }
++
++                return false;
++            }
++            finally
++            {
++                FileManager.CurrentlyLoadingModel = false;
++                FileManager.ModelOperationLock.Release();
++            }
++        }
++
++        internal async Task<bool> ApplyPerformanceRecommendationAsync(PerformanceRecommendation recommendation)
++        {
++            if (recommendation.CanChangeImageSize &&
++                recommendation.SuggestedImageSize != AimSettings.ImageSize)
++            {
++                bool changed = await ChangeImageSizeAsync(recommendation.SuggestedImageSize.ToString());
++                if (!changed)
++                    return false;
++            }
++
++            Dictionary.sliderSettings["AI FPS Limit"] = recommendation.SuggestedFpsLimit;
++            if (uiManager.S_AIFpsLimit != null)
++            {
++                uiManager.S_AIFpsLimit.Slider.Value = recommendation.SuggestedFpsLimit;
++            }
++
++            return true;
+         }
+ 
+@@ -609,35 +596,8 @@
+
+         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
+         private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+-        private void Exit_Click(object sender, RoutedEventArgs e) => Close();
++        private void Exit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+ 
+         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+         {
+-            _windowSizeSaveTimer.Stop();
+-            SaveWindowSize();
+-            if (!_isExplicitExit)
+-            {
+-                e.Cancel = true;
+-                var exitWindow = new ExitConfirmationWindow();
+-                exitWindow.Owner = this;
+-                exitWindow.ShowDialog();
+-
+-                if (exitWindow.Choice == ExitConfirmationWindow.ExitChoice.Hide)
+-                {
+-                    Hide();
+-                }
+-                else if (exitWindow.Choice == ExitConfirmationWindow.ExitChoice.Exit)
+-                {
+-                    _isExplicitExit = true;
+-                    Application.Current.Shutdown();
+-                }
+-                return;
+-            }
+-
+-            if (_notifyIcon != null)
+-            {
+-                _notifyIcon.Visible = false;
+-                _notifyIcon.Dispose();
+-            }
+-
+             if (_fileManager?.IsValueCreated == true)
+             {
+@@ -645,10 +605,5 @@
+
+             }
+ 
+-            // Loot đã được tích hợp native, không cần thoát process ngoài
+-
+-            InputLogic.LootManager.StopExternalLootProcesses();
+-
+-            // Do not disable features on close so that their states are saved and restored on next startup
+-            // DisableAllFeatures();
++            DisableAllFeatures();
+             CloseWindows();
+             CleanupDrivers();
+@@ -667,5 +622,4 @@
+
+             DisplayManager.DisplayChanged -= OnDisplayChanged;
+             DisplayManager.Dispose();
+-            RecoilManager.Stop();
+ 
+             Application.Current.Shutdown();
+@@ -674,5 +628,5 @@
+
+         private void DisableAllFeatures()
+         {
+-            var features = new[] { "Aim Assist", "FOV", "Show Detected Player", "Virtual Crosshair" };
++            var features = new[] { "Aim Assist", "FOV", "Show Detected Player" };
+             foreach (var feature in features)
+             {
+@@ -683,17 +637,6 @@
+
+         private void CloseWindows()
+         {
+-            try
+-            {
+-                FOVWindow?.Close();
+-                DPWindow?.Close();
+-                ScopeWindow?.Close();
+-                CrosshairWindow?.Close();
+-                
+-                Dictionary.DetectedScopeOverlay?.Close();
+-                Dictionary.DetectedPlayerOverlay?.Close();
+-                Dictionary.FOVWindow?.Close();
+-                Dictionary.CrosshairWindow?.Close();
+-            }
+-            catch { }
++            FOVWindow.Close();
++            DPWindow.Close();
+         }
+ 
+@@ -707,28 +650,10 @@
+
+         }
+ 
+-        public void SaveAllConfigurations()
+-        {
+-            MouseSensitivityProfiles.Save();
+-            CapturePreferences.Save();
+-            SaveWindowSize();
+-            // Sao lưu trạng thái toggle hiện tại trong bộ nhớ
+-            bool currentAimAssist = Dictionary.toggleState.TryGetValue("Aim Assist", out var aaC) && (bool)aaC;
+-            bool currentWeaponRecog = Dictionary.toggleState.TryGetValue("Weapon Recognition", out var wrC) && (bool)wrC;
+-
+-            // Khôi phục cấu hình gốc khi lưu nếu người dùng chưa tương tác thủ công
+-            if (!_cancelAimAssistDelayedActivation)
+-            {
+-                Dictionary.toggleState["Aim Assist"] = _savedAimAssist;
+-            }
+-            if (!_cancelWeaponRecognitionDelayedActivation)
+-            {
+-                Dictionary.toggleState["Weapon Recognition"] = _savedWeaponRecognition;
+-            }
+-
++        private void SaveAllConfigurations()
++        {
+             Dictionary.colorState["Theme Color"] = ThemeManager.GetThemeColorHex();
+ 
+-            SaveDictionary.WriteJSON(PriorityAimingConfig.WithoutPriorityKeys(Dictionary.sliderSettings)
+-                .Where(kvp => kvp.Key != "Screen Capture Method" && kvp.Key != "Scope Capture Method" && kvp.Key != "Slot 1 Image Size" && kvp.Key != "Slot 2 Image Size")
+-                .Concat(PriorityAimingConfig.WithoutPriorityKeys(Dictionary.dropdownState))
++            SaveDictionary.WriteJSON(Dictionary.sliderSettings
++                .Concat(Dictionary.dropdownState)
+                 //.Where(kvp => kvp.Key != "Screen Capture Method")
+                 .GroupBy(kvp => kvp.Key)
+@@ -736,21 +661,9 @@
+
+                 .First().Value));
+             SaveDictionary.WriteJSON(Dictionary.minimizeState, "bin\\minimize.cfg");
+-            SaveDictionary.WriteJSON(PriorityAimingConfig.WithoutPriorityKeys(Dictionary.bindingSettings), "bin\\binding.cfg");
+-            SaveDictionary.WriteJSON(PriorityAimingConfig.WithoutPriorityKeys(Dictionary.dropdownState), "bin\\dropdown.cfg");
++            SaveDictionary.WriteJSON(Dictionary.bindingSettings, "bin\\binding.cfg");
++            SaveDictionary.WriteJSON(Dictionary.dropdownState, "bin\\dropdown.cfg");
+             SaveDictionary.WriteJSON(Dictionary.colorState, "bin\\colors.cfg");
+             SaveDictionary.WriteJSON(Dictionary.filelocationState, "bin\\filelocations.cfg");
+-            SaveDictionary.WriteJSON(Dictionary.filelocationState, "bin\\filelocations.cfg");
+-            SaveDictionary.WriteJSON(PriorityAimingConfig.WithoutPriorityKeys(Dictionary.toggleState), "bin\\toggles.cfg");
+-            PriorityAimingConfig.Save();
+-
+-            // Save Model State
+-            Dictionary.modelState["Slot1"] = Dictionary.lastLoadedModel;
+-            Dictionary.modelState["Slot2"] = Dictionary.lastLoadedModelSlot2;
+-            Dictionary.modelState["LastLoadedConfig"] = Dictionary.lastLoadedConfig;
+-            SaveDictionary.WriteJSON(Dictionary.modelState, "bin\\models.cfg");
+-
+-            // Phục hồi lại trạng thái toggle thực tế trong bộ nhớ
+-            Dictionary.toggleState["Aim Assist"] = currentAimAssist;
+-            Dictionary.toggleState["Weapon Recognition"] = currentWeaponRecog;
++            SaveDictionary.WriteJSON(Dictionary.toggleState, "bin\\toggles.cfg");
+         }
+ 
+@@ -797,32 +710,5 @@
+
+                         aimMenu.Initialize(this);
+                         CurrentScrollViewer = aimMenu.AimMenuScrollViewer;
+-                        
+-                        // Reload configs to overwrite any default values set during UI initialization
+-                        // This prevents settings from being reset to defaults (e.g. Movement Path = Cubic, Sliders = Min)
+-                        string activeConfig = Dictionary.lastLoadedConfig;
+-                        if (string.IsNullOrEmpty(activeConfig) || activeConfig == "N/A")
+-                        {
+-                            activeConfig = "Default.cfg";
+-                        }
+-                        string activeConfigPath = Path.Combine("bin\\configs", activeConfig);
+-                        if (!File.Exists(activeConfigPath))
+-                        {
+-                            activeConfigPath = "bin\\configs\\Default.cfg";
+-                        }
+-
+-                        InputLogic.LootManager.PrepareForConfigLoad();
+-                        SaveDictionary.LoadJSON(Dictionary.sliderSettings, activeConfigPath, false);
+-                        InputLogic.LootManager.PostConfigLoad();
+-                        SaveDictionary.LoadJSON(Dictionary.dropdownState, activeConfigPath, false);
+-                        if (File.Exists("bin\\dropdown.cfg"))
+-                        {
+-                            SaveDictionary.LoadJSON(Dictionary.dropdownState, "bin\\dropdown.cfg", false);
+-                        }
+-                        
+                         LoadDropdownStates();
+-                        LoadDropdownStates();
+-                        ApplyConfigToSliders();
+-                        UpdateSliderVisibility(uiManager);
+-                        aimMenu.RefreshRecoilConfig();
+                         break;
+ 
+@@ -929,13 +815,4 @@
+
+                     {
+                         FOVWindow.ForceReposition();
+-                    }
+-                },
+-                ["Virtual Crosshair"] = () =>
+-                {
+-                    bool isEnabled = Dictionary.toggleState[title];
+-                    CrosshairWindow.Visibility = isEnabled ? Visibility.Visible : Visibility.Collapsed;
+-                    if (isEnabled)
+-                    {
+-                        CrosshairWindow.ForceReposition();
+                     }
+                 },
+@@ -961,30 +838,7 @@
+
+                 {
+                     MouseManager.IsEMASmoothingEnabled = Dictionary.toggleState[title];
+-                    if (Dictionary.toggleState[title])
+-                    {
+-                        MouseManager.smoothingFactor = Dictionary.sliderSettings["EMA Smoothening"];
+-                    }
+-                },
+-                ["Show Detected Scope"] = () =>
+-                {
+-                    ScopeWindow.Show(Dictionary.toggleState[title]);
+                 },
+                 ["X Axis Percentage Adjustment"] = () => UpdateSliderVisibility(uiManager),
+-                ["Y Axis Percentage Adjustment"] = () => UpdateSliderVisibility(uiManager),
+-                ["Slot 1 X Axis Percentage Adjustment"] = () => UpdateSliderVisibility(uiManager),
+-                ["Slot 1 Y Axis Percentage Adjustment"] = () => UpdateSliderVisibility(uiManager),
+-                ["Slot 1 Priority Aiming"] = () => 
+-                {
+-                    if (FileManager.AIManager != null)
+-                        FileManager.AIManager.Slot1AimHead = Dictionary.toggleState[title];
+-                    PriorityAimingConfig.Save();
+-                },
+-                ["Slot 2 Priority Aiming"] = () => 
+-                {
+-                    if (FileManager.AIManager != null)
+-                        FileManager.AIManager.Slot2AimHead = Dictionary.toggleState[title];
+-                    PriorityAimingConfig.Save();
+-                },
+-                ["Mouse Wheel Adjust"] = () => UpdateSliderVisibility(uiManager)
++                ["Y Axis Percentage Adjustment"] = () => UpdateSliderVisibility(uiManager)
+             };
+ 
+@@ -994,83 +848,23 @@
+
+             }
+         }
+-        public static void UpdateSliderVisibility(UI uiManager)
+-        {
+-            // === Aim Assist Visibility ===
+-            bool thresholdEnabled = Dictionary.toggleState["Sticky Aim"];
+-            bool aimAssistCollapsed = Dictionary.minimizeState.TryGetValue("Aim Assist", out var aaC) && (bool)aaC == true;
+-
+-            if (uiManager.S_StickyAimThreshold != null)
+-            {
+-                uiManager.S_StickyAimThreshold.Visibility = (thresholdEnabled && !aimAssistCollapsed)
+-                   ? Visibility.Visible 
+-                   : Visibility.Collapsed;
+-            }
+-
+-            if (uiManager.S_TargetLockDuration != null)
+-            {
+-                uiManager.S_TargetLockDuration.Visibility = (thresholdEnabled && !aimAssistCollapsed)
+-                   ? Visibility.Visible 
+-                   : Visibility.Collapsed;
+-            }
+-
+-            // === Slot 2 Visibility ===
+-            bool slot2Collapsed = Dictionary.minimizeState.TryGetValue("Aim Config (Slot 2)", out var s2C) && (bool)s2C == true;
++        private static void UpdateSliderVisibility(UI uiManager)
++        {
+             bool useYPercent = Dictionary.toggleState["Y Axis Percentage Adjustment"];
+             bool useXPercent = Dictionary.toggleState["X Axis Percentage Adjustment"];
+-
+-            if (slot2Collapsed)
+-            {
+-                if (uiManager.S_YOffset != null) uiManager.S_YOffset.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_YOffsetPercent != null) uiManager.S_YOffsetPercent.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_XOffset != null) uiManager.S_XOffset.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_XOffsetPercent != null) uiManager.S_XOffsetPercent.Visibility = Visibility.Collapsed;
+-            }
+-            else
+-            {
+-                if (uiManager.S_YOffset != null)
+-                    uiManager.S_YOffset.Visibility = useYPercent ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_YOffsetPercent != null)
+-                    uiManager.S_YOffsetPercent.Visibility = useYPercent ? Visibility.Visible : Visibility.Collapsed;
+-
+-                if (uiManager.S_XOffset != null)
+-                    uiManager.S_XOffset.Visibility = useXPercent ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_XOffsetPercent != null)
+-                    uiManager.S_XOffsetPercent.Visibility = useXPercent ? Visibility.Visible : Visibility.Collapsed;
+-            }
+-
+-            // === Slot 1 Visibility ===
+-            bool slot1Collapsed = Dictionary.minimizeState.TryGetValue("Aim Config (Slot 1)", out var s1C) && (bool)s1C == true;
+-            bool s1YPercent = Dictionary.toggleState["Slot 1 Y Axis Percentage Adjustment"];
+-            bool s1XPercent = Dictionary.toggleState["Slot 1 X Axis Percentage Adjustment"];
+-
+-            if (slot1Collapsed)
+-            {
+-                if (uiManager.S_Slot1YOffset != null) uiManager.S_Slot1YOffset.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_Slot1YOffsetPercent != null) uiManager.S_Slot1YOffsetPercent.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_Slot1XOffset != null) uiManager.S_Slot1XOffset.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_Slot1XOffsetPercent != null) uiManager.S_Slot1XOffsetPercent.Visibility = Visibility.Collapsed;
+-            }
+-            else
+-            {
+-                // Y Axis
+-                if (uiManager.S_Slot1YOffset != null)
+-                    uiManager.S_Slot1YOffset.Visibility = s1YPercent ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_Slot1YOffsetPercent != null)
+-                    uiManager.S_Slot1YOffsetPercent.Visibility = s1YPercent ? Visibility.Visible : Visibility.Collapsed;
+-
+-                // X Axis
+-                if (uiManager.S_Slot1XOffset != null)
+-                    uiManager.S_Slot1XOffset.Visibility = s1XPercent ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_Slot1XOffsetPercent != null)
+-                    uiManager.S_Slot1XOffsetPercent.Visibility = s1XPercent ? Visibility.Visible : Visibility.Collapsed;
+-            }
+-
+-            // === Mouse Wheel Adjust Step Visibility ===
+-            if (uiManager.S_MouseWheelAdjustStep != null)
+-            {
+-                bool recoilCollapsed = Dictionary.minimizeState.TryGetValue("Recoil Config", out var rc) && (bool)rc == true;
+-                bool wheelAdjustEnabled = Dictionary.toggleState.ContainsKey("Mouse Wheel Adjust") && Dictionary.toggleState["Mouse Wheel Adjust"];
+-                uiManager.S_MouseWheelAdjustStep.Visibility = (wheelAdjustEnabled && !recoilCollapsed) ? Visibility.Visible : Visibility.Collapsed;
+-            }
++            bool thresholdEnabled = Dictionary.toggleState["Sticky Aim"];
++
++            // Null checks in case AimMenu hasn't been loaded yet
++            if (uiManager.S_StickyAimThreshold != null)
++                uiManager.S_StickyAimThreshold.Visibility = thresholdEnabled ? Visibility.Visible : Visibility.Collapsed;
++
++            if (uiManager.S_YOffset != null)
++                uiManager.S_YOffset.Visibility = useYPercent ? Visibility.Collapsed : Visibility.Visible;
++            if (uiManager.S_YOffsetPercent != null)
++                uiManager.S_YOffsetPercent.Visibility = useYPercent ? Visibility.Visible : Visibility.Collapsed;
++
++            if (uiManager.S_XOffset != null)
++                uiManager.S_XOffset.Visibility = useXPercent ? Visibility.Collapsed : Visibility.Visible;
++            if (uiManager.S_XOffsetPercent != null)
++                uiManager.S_XOffsetPercent.Visibility = useXPercent ? Visibility.Visible : Visibility.Collapsed;
+         }
+ 
+@@ -1133,25 +927,8 @@
+
+         #region Keybind Handling
+ 
+-        private bool _isWeaponScanToggled = false;
+-        private DateTime _lastScanStop = DateTime.MinValue;
+-
+         private void ListenForKeybinds()
+         {
+             bindingManager.OnBindingPressed += HandleKeybindPressed;
+             bindingManager.OnBindingReleased += HandleKeybindReleased;
+-            bindingManager.OnAnyKeyDown += HandleAnyKeyDown;
+-        }
+-
+-        private void HandleAnyKeyDown(Keys key)
+-        {
+-            if (!_isWeaponScanToggled) return;
+-
+-            string scanKey = bindingManager.GetBinding("Weapon Scan Keybind");
+-            bool isScanKey = key.ToString() == scanKey || (scanKey.Contains("+") && scanKey.EndsWith(key.ToString()));
+-
+-            // Stop recognition
+-            _isWeaponScanToggled = false;
+-            _lastScanStop = DateTime.Now; // Record time to prevent double-toggle on Tab
+-            WeaponSlotManager.Instance.StopScanning();
+         }
+ 
+@@ -1162,32 +939,5 @@
+
+                 ["Model Switch Keybind"] = HandleModelSwitch,
+                 ["Dynamic FOV Keybind"] = () => ApplyDynamicFOV(true),
+-                ["Emergency Stop Keybind"] = HandleEmergencyStop,
+-                ["Recoil Toggle Keybind"] = () => ToggleToggle("Scope Recoil Control", uiManager.T_ScopeRecoil),
+-
+-                ["Weapon Scan Keybind"] = () => 
+-                { 
+-                    if (Dictionary.toggleState["Weapon Recognition"]) 
+-                    {
+-                        // If it was just stopped by HandleAnyKeyDown (e.g. Tab pressed), don't do anything
+-                        if ((DateTime.Now - _lastScanStop).TotalMilliseconds < 200)
+-                            return;
+-
+-                        if (Dictionary.toggleState["Toggle Weapon Scan"])
+-                        {
+-                            _isWeaponScanToggled = !_isWeaponScanToggled;
+-                            if (_isWeaponScanToggled)
+-                                WeaponSlotManager.Instance.OnTabPressed();
+-                            else
+-                                WeaponSlotManager.Instance.StopScanning();
+-                        }
+-                        else
+-                        {
+-                            WeaponSlotManager.Instance.OnTabPressed();
+-                        }
+-                    } 
+-                },
+-                ["Weapon Slot 1 Keybind"] = () => { WeaponSlotManager.Instance.HandleKeyPress(Keys.D1); },
+-                ["Weapon Slot 2 Keybind"] = () => { WeaponSlotManager.Instance.HandleKeyPress(Keys.D2); },
+-                ["Fast Loot Keybind"] = () => { }
++                ["Emergency Stop Keybind"] = HandleEmergencyStop
+             };
+ 
+@@ -1199,16 +949,5 @@
+
+             var handlers = new Dictionary<string, Action>
+             {
+-                ["Dynamic FOV Keybind"] = () => ApplyDynamicFOV(false),
+-                ["Weapon Scan Keybind"] = () => 
+-                { 
+-                    if (Dictionary.toggleState["Weapon Recognition"]) 
+-                    {
+-                        if (!Dictionary.toggleState["Toggle Weapon Scan"])
+-                        {
+-                            // Only release if NOT in toggle mode
+-                            WeaponSlotManager.Instance.OnTabReleased(); 
+-                        }
+-                    }
+-                }
++                ["Dynamic FOV Keybind"] = () => ApplyDynamicFOV(false)
+             };
+ 
+@@ -1260,17 +999,16 @@
+
+         private void AnimateFOVSize(double targetSize)
+         {
+-            targetSize = Math.Clamp(targetSize, 10, FovSettings.ImageSize);
+-            var duration = TimeSpan.FromMilliseconds(500);
+-            Animator.WidthShift(duration, FOVWindow.Circle, FOVWindow.Circle.ActualWidth, targetSize / WinAPICaller.scalingFactorX);
+-            Animator.HeightShift(duration, FOVWindow.Circle, FOVWindow.Circle.ActualHeight, targetSize / WinAPICaller.scalingFactorY);
+-            Animator.WidthShift(duration, FOVWindow.RectangleShape, FOVWindow.RectangleShape.ActualWidth, targetSize / WinAPICaller.scalingFactorX);
+-            Animator.HeightShift(duration, FOVWindow.RectangleShape, FOVWindow.RectangleShape.ActualHeight, targetSize / WinAPICaller.scalingFactorY);
+-        }
+-        /* Old
+-        private void AnimateFOVSize(double targetSize)
+-        {
+             var duration = TimeSpan.FromMilliseconds(500);
+             Animator.WidthShift(duration, FOVWindow.Circle, FOVWindow.Circle.ActualWidth, targetSize);
+             Animator.HeightShift(duration, FOVWindow.Circle, FOVWindow.Circle.ActualHeight, targetSize);
++            Animator.WidthShift(duration, FOVWindow.RectangleShape, FOVWindow.RectangleShape.ActualWidth, targetSize);
++            Animator.HeightShift(duration, FOVWindow.RectangleShape, FOVWindow.RectangleShape.ActualHeight, targetSize);
++        }
++        /* Old
++        private void AnimateFOVSize(double targetSize)
++        {
++            var duration = TimeSpan.FromMilliseconds(500);
++            Animator.WidthShift(duration, FOVWindow.Circle, FOVWindow.Circle.ActualWidth, targetSize);
++            Animator.HeightShift(duration, FOVWindow.Circle, FOVWindow.Circle.ActualHeight, targetSize);
+         }
+         */
+@@ -1328,5 +1066,4 @@
+
+         private void LoadDropdownStates()
+         {
+-            CapturePreferences.Load();
+ 
+             var dropdownConfigs = new[]
+@@ -1362,14 +1099,7 @@
+
+                 {
+                     ["DirectX"] = 0,
+-                    ["GDI+"] = 1,
+-                    ["WGC"] = 2
++                    ["GDI+"] = 1
+                 }),
+-                (uiManager.D_ScopeCaptureMethod, "Scope Capture Method", new Dictionary<string, int>
+-                {
+-                    ["DirectX"] = 0,
+-                    ["GDI+"] = 1,
+-                    ["WGC"] = 2
+-                }),
+-                (uiManager.D_Slot1ImageSize, "Slot 1 Image Size", new Dictionary<string, int>
++                (uiManager.D_ImageSize, "Image Size", new Dictionary<string, int>
+                 {
+                     ["640"] = 0,
+@@ -1380,41 +1110,4 @@
+
+                     ["160"] = 5
+                 }),
+-                (uiManager.D_Slot2ImageSize, "Slot 2 Image Size", new Dictionary<string, int>
+-                {
+-                    ["640"] = 0,
+-                    ["512"] = 1,
+-                    ["416"] = 2,
+-                    ["320"] = 3,
+-                    ["256"] = 4,
+-                    ["160"] = 5
+-                }),
+-                // Slot 1 Dropdowns
+-                 (uiManager.D_Slot1MouseMovementMethod, "Slot 1 Mouse Movement Method", new Dictionary<string, int>
+-                {
+-                    ["Mouse Event"] = 0,
+-                    ["SendInput"] = 1,
+-                    ["LG HUB"] = 2,
+-                    ["Razer Synapse (Require Razer Peripheral)"] = 3,
+-                    ["ddxoft Virtual Input Driver"] = 4
+-                }),
+-                (uiManager.D_Slot1MovementPath, "Slot 1 Movement Path", new Dictionary<string, int>
+-                {
+-                    ["Cubic Bezier"] = 0,
+-                    ["Exponential"] = 1,
+-                    ["Linear"] = 2,
+-                    ["Adaptive"] = 3,
+-                    ["Perlin Noise"] = 4
+-                }),
+-                (uiManager.D_Slot1DetectionAreaType, "Slot 1 Detection Area Type", new Dictionary<string, int>
+-                {
+-                    ["Closest to Center Screen"] = 0,
+-                    ["Closest to Mouse"] = 1
+-                }),
+-                (uiManager.D_Slot1AimingBoundariesAlignment, "Slot 1 Aiming Boundaries Alignment", new Dictionary<string, int>
+-                {
+-                    ["Center"] = 0,
+-                    ["Top"] = 1,
+-                    ["Bottom"] = 2
+-                })
+             };
+ 
+@@ -1442,16 +1135,19 @@
+
+ 
+             // Update slider visibility based on loaded states
+-            UpdatePredictionSliderVisibility(uiManager);
++            UpdatePredictionSliderVisibility();
+             UpdateAimAssistSliderVisibility();
+             UpdateAimConfigSliderVisibility();
+         }
+ 
++        internal static void ApplyConfigLoadDefaults(IDictionary<string, dynamic> sliderSettings)
++        {
++            sliderSettings["AI FPS Limit"] = 0;
++        }
++
+         private void LoadConfig(string path = "bin\\configs\\Default.cfg", bool loading_from_configlist = false)
+         {
+-            InputLogic.LootManager.PrepareForConfigLoad();
+-            SaveDictionary.LoadJSON(Dictionary.sliderSettings, path, false);
+-            InputLogic.LootManager.PostConfigLoad();
+-            SaveDictionary.LoadJSON(Dictionary.dropdownState, path, false);
+-            PriorityAimingConfig.Load();
++            ApplyConfigLoadDefaults(Dictionary.sliderSettings);
++            SaveDictionary.LoadJSON(Dictionary.sliderSettings, path);
++            SaveDictionary.LoadJSON(Dictionary.dropdownState, path);
+ 
+             if (!loading_from_configlist || _menuControls["AimMenu"] == null || !_menuInitialized["AimMenu"])
+@@ -1463,9 +1159,4 @@
+
+                 ApplyConfigToSliders();
+                 ApplyConfigToDropdowns();
+-
+-                if (_menuControls["AimMenu"] is AimMenuControl aimMenu)
+-                {
+-                    aimMenu.RefreshRecoilConfig();
+-                }
+             }
+             catch (Exception e)
+@@ -1491,11 +1182,11 @@
+
+         private void ApplyConfigToSliders()
+         {
+-            (string key, ASlider? slider, double defaultValue)[] sliderConfigs = new[]
++            var sliderConfigs = new[]
+             {
+                 ("FOV Size", uiManager.S_FOVSize, 640.0),
+                 ("Mouse Sensitivity (+/-)", uiManager.S_MouseSensitivity, 0.8),
++                ("AI FPS Limit", uiManager.S_AIFpsLimit, 0.0),
+                 ("Mouse Jitter", uiManager.S_MouseJitter, 0.0),
+-                ("Sticky Aim Threshold", uiManager.S_StickyAimThreshold, 50.0),
+-                ("Target Lock Duration", uiManager.S_TargetLockDuration, 500.0),
++                ("Sticky Aim Threshold", uiManager.S_StickyAimThreshold, 50),
+                 ("EMA Smoothening", uiManager.S_EMASmoothing, 0.5),
+                 ("Y Offset (Up/Down)", uiManager.S_YOffset, 0.0),
+@@ -1504,13 +1195,8 @@
+
+                 ("X Offset (%)", uiManager.S_XOffsetPercent, 0.0),
+                 ("Auto Trigger Delay", uiManager.S_AutoTriggerDelay, 0.25),
+-                ("AI Minimum Confidence", uiManager.S_Slot1AIMinimumConfidence, 50.0),
+-                ("Slot 2 AI Minimum Confidence", uiManager.S_Slot2AIMinimumConfidence, 50.0),
++                ("AI Minimum Confidence", uiManager.S_AIMinimumConfidence, 50.0),
+                 ("Kalman Lead Time", uiManager.S_KalmanLeadTime, 0.10),
+                 ("WiseTheFox Lead Time", uiManager.S_WiseTheFoxLeadTime, 0.15),
+-                ("Shalloe Lead Multiplier", uiManager.S_ShalloeLeadMultiplier, 3.0),
+-                ("Scope Confidence", uiManager.S_ScopeConfidence, 45.0),
+-                ("Weapon Scan Delay", uiManager.S_WeaponScanDelay, 2.0),
+-                ("Crosshair Size", uiManager.S_CrosshairSize, 6.0),
+-                ("Mouse Wheel Adjust Step", uiManager.S_MouseWheelAdjustStep, 2.0)
++                ("Shalloe Lead Multiplier", uiManager.S_ShalloeLeadMultiplier, 3.0)
+             };
+ 
+@@ -1521,5 +1207,5 @@
+
+         private void ApplyConfigToDropdowns()
+         {
+-            (string key, ADropdown? dropdown, Dictionary<string, int> mappings)[] dropdownConfigs = new[]
++            var dropdownConfigs = new[]
+             {
+ 
+@@ -1553,4 +1239,14 @@
+
+                 }),
+ 
++                ("Image Size", uiManager.D_ImageSize, new Dictionary<string, int>
++                {
++                    ["640"] = 0,
++                    ["512"] = 1,
++                    ["416"] = 2,
++                    ["320"] = 3,
++                    ["256"] = 4,
++                    ["160"] = 5
++                }),
++
+                 ("Movement Path", uiManager.D_MovementPath, new Dictionary<string, int>
+                 {
+@@ -1569,44 +1265,7 @@
+
+                 }),
+ 
+-                ("Slot 1 Target Class", uiManager.D_Slot1TargetClass, new Dictionary<string, int>
++                ("Target Class", uiManager.D_TargetClass, new Dictionary<string, int>
+                 {
+                     ["Best Confidence"] = 0,
+-                }),
+-
+-                ("Slot 2 Target Class", uiManager.D_Slot2TargetClass, new Dictionary<string, int>
+-                {
+-                    ["Best Confidence"] = 0,
+-                }),
+-
+-                // Slot 1 Dropdowns
+-                ("Slot 1 Mouse Movement Method", uiManager.D_Slot1MouseMovementMethod, new Dictionary<string, int>
+-                {
+-                    ["Mouse Event"] = 0,
+-                    ["SendInput"] = 1,
+-                    ["LG HUB"] = 2,
+-                    ["Razer Synapse (Require Razer Peripheral)"] = 3,
+-                    ["ddxoft Virtual Input Driver"] = 4
+-                }),
+-
+-                ("Slot 1 Movement Path", uiManager.D_Slot1MovementPath, new Dictionary<string, int>
+-                {
+-                    ["Cubic Bezier"] = 0,
+-                    ["Exponential"] = 1,
+-                    ["Linear"] = 2,
+-                    ["Adaptive"] = 3,
+-                    ["Perlin Noise"] = 4
+-                }),
+-                
+-                 ("Slot 1 Detection Area Type", uiManager.D_Slot1DetectionAreaType, new Dictionary<string, int>
+-                {
+-                    ["Closest to Center Screen"] = 0,
+-                    ["Closest to Mouse"] = 1
+-                }),
+-
+-                ("Slot 1 Aiming Boundaries Alignment", uiManager.D_Slot1AimingBoundariesAlignment, new Dictionary<string, int>
+-                {
+-                    ["Center"] = 0,
+-                    ["Top"] = 1,
+-                    ["Bottom"] = 2
+                 })
+             };
+@@ -1615,8 +1274,8 @@
+
+ 
+             // Update prediction slider visibility based on selected method
+-            UpdatePredictionSliderVisibility(uiManager);
+-        }
+-
+-        public static void UpdatePredictionSliderVisibility(UI uiManager)
++            UpdatePredictionSliderVisibility();
++        }
++
++        public void UpdatePredictionSliderVisibility()
+         {
+             // Hide all prediction sliders first
+@@ -1627,15 +1286,13 @@
+
+             if (uiManager.S_ShalloeLeadMultiplier != null)
+                 uiManager.S_ShalloeLeadMultiplier.Visibility = Visibility.Collapsed;
+-            if (uiManager.S_CALeadMultiplier != null)
+-                uiManager.S_CALeadMultiplier.Visibility = Visibility.Collapsed;
+- 
++
+             // Don't show sliders if Predictions section is collapsed
+-            if (Dictionary.minimizeState.TryGetValue("Predictions", out var collapsed) && (bool)collapsed == true)
++            if (Dictionary.minimizeState.TryGetValue("Predictions", out var collapsed) && collapsed == true)
+                 return;
+- 
++
+             // Get selected method from actual dropdown selection
+             var selectedItem = uiManager.D_PredictionMethod?.DropdownBox?.SelectedItem as ComboBoxItem;
+             string selectedMethod = selectedItem?.Content?.ToString() ?? "";
+- 
++
+             // Show only the relevant slider based on selected method
+             switch (selectedMethod)
+@@ -1653,8 +1310,4 @@
+
+                         uiManager.S_WiseTheFoxLeadTime.Visibility = Visibility.Visible;
+                     break;
+-                case "Constant Acceleration":
+-                    if (uiManager.S_CALeadMultiplier != null)
+-                        uiManager.S_CALeadMultiplier.Visibility = Visibility.Visible;
+-                    break;
+             }
+         }
+@@ -1680,6 +1333,6 @@
+
+         public void UpdateAimConfigSliderVisibility()
+         {
+-            // === Slot 2 Visibility ===
+-            if (Dictionary.minimizeState.TryGetValue("Aim Config (Slot 2)", out var collapsed2) && collapsed2 == true)
++            // Don't show sliders if Aim Config section is collapsed
++            if (Dictionary.minimizeState.TryGetValue("Aim Config", out var collapsed) && collapsed == true)
+             {
+                 if (uiManager.S_YOffset != null) uiManager.S_YOffset.Visibility = Visibility.Collapsed;
+@@ -1687,53 +1340,20 @@
+
+                 if (uiManager.S_XOffset != null) uiManager.S_XOffset.Visibility = Visibility.Collapsed;
+                 if (uiManager.S_XOffsetPercent != null) uiManager.S_XOffsetPercent.Visibility = Visibility.Collapsed;
+-            }
+-            else
+-            {
+-                // Y Axis
+-                bool yPercentEnabled = Dictionary.toggleState["Y Axis Percentage Adjustment"];
+-                if (uiManager.S_YOffset != null)
+-                    uiManager.S_YOffset.Visibility = yPercentEnabled ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_YOffsetPercent != null)
+-                    uiManager.S_YOffsetPercent.Visibility = yPercentEnabled ? Visibility.Visible : Visibility.Collapsed;
+-
+-                // X Axis
+-                bool xPercentEnabled = Dictionary.toggleState["X Axis Percentage Adjustment"];
+-                if (uiManager.S_XOffset != null)
+-                    uiManager.S_XOffset.Visibility = xPercentEnabled ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_XOffsetPercent != null)
+-                    uiManager.S_XOffsetPercent.Visibility = xPercentEnabled ? Visibility.Visible : Visibility.Collapsed;
+-            }
+-
+-            // === Slot 1 Visibility ===
+-            if (Dictionary.minimizeState.TryGetValue("Aim Config (Slot 1)", out var collapsed1) && collapsed1 == true)
+-            {
+-                // If collapsed, hide all offset sliders for Slot 1
+-                if (uiManager.S_Slot1YOffset != null) uiManager.S_Slot1YOffset.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_Slot1YOffsetPercent != null) uiManager.S_Slot1YOffsetPercent.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_Slot1XOffset != null) uiManager.S_Slot1XOffset.Visibility = Visibility.Collapsed;
+-                if (uiManager.S_Slot1XOffsetPercent != null) uiManager.S_Slot1XOffsetPercent.Visibility = Visibility.Collapsed;
+-                // Note: Toggles should remain visible unless inside a collapsed parent that hides them, 
+-                // but the Minimize logic in AimMenuControl usually hides the whole Panel content. 
+-                // The SectionBuilder puts everything in the panel.
+-                // The Sliders.Visibility logic here is for switching between Pixel/Percent modes.
+-                // If the whole panel is collapsed, everything is hidden by SetPanelVisibility anyway.
+-                // However, we must ensure that when EXPANDED, we show the CORRECT slider.
+-            }
+-            else
+-            {
+-                // Slot 1 Y Axis
+-                bool s1YPercent = Dictionary.toggleState["Slot 1 Y Axis Percentage Adjustment"];
+-                if (uiManager.S_Slot1YOffset != null)
+-                    uiManager.S_Slot1YOffset.Visibility = s1YPercent ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_Slot1YOffsetPercent != null)
+-                    uiManager.S_Slot1YOffsetPercent.Visibility = s1YPercent ? Visibility.Visible : Visibility.Collapsed;
+-
+-                // Slot 1 X Axis
+-                bool s1XPercent = Dictionary.toggleState["Slot 1 X Axis Percentage Adjustment"];
+-                if (uiManager.S_Slot1XOffset != null)
+-                    uiManager.S_Slot1XOffset.Visibility = s1XPercent ? Visibility.Collapsed : Visibility.Visible;
+-                if (uiManager.S_Slot1XOffsetPercent != null)
+-                    uiManager.S_Slot1XOffsetPercent.Visibility = s1XPercent ? Visibility.Visible : Visibility.Collapsed;
+-            }
++                return;
++            }
++
++            // Y Axis: Show pixel offset when toggle is OFF, percentage offset when toggle is ON
++            bool yPercentEnabled = Dictionary.toggleState["Y Axis Percentage Adjustment"];
++            if (uiManager.S_YOffset != null)
++                uiManager.S_YOffset.Visibility = yPercentEnabled ? Visibility.Collapsed : Visibility.Visible;
++            if (uiManager.S_YOffsetPercent != null)
++                uiManager.S_YOffsetPercent.Visibility = yPercentEnabled ? Visibility.Visible : Visibility.Collapsed;
++
++            // X Axis: Show pixel offset when toggle is OFF, percentage offset when toggle is ON
++            bool xPercentEnabled = Dictionary.toggleState["X Axis Percentage Adjustment"];
++            if (uiManager.S_XOffset != null)
++                uiManager.S_XOffset.Visibility = xPercentEnabled ? Visibility.Collapsed : Visibility.Visible;
++            if (uiManager.S_XOffsetPercent != null)
++                uiManager.S_XOffsetPercent.Visibility = xPercentEnabled ? Visibility.Visible : Visibility.Collapsed;
+         }
+ 
+@@ -1786,109 +1406,4 @@
+
+         #endregion
+ 
+-        private async Task ValidateAndRestoreModels()
+-        {
+-            // 1. Recover state from Dictionary
+-            string savedSlot1 = Dictionary.modelState.GetValueOrDefault("Slot1", "N/A");
+-            string savedSlot2 = Dictionary.modelState.GetValueOrDefault("Slot2", "N/A");
+-
+-            // 2. Validate Slot 1
+-            if (savedSlot1 != "N/A")
+-            {
+-                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bin", "models", "Slot1", savedSlot1);
+-                if (File.Exists(path))
+-                {
+-                    // Do NOT set Dictionary.lastLoadedModel here. 
+-                    // Let the SelectionChanged event handle it, otherwise the event will exit early.
+-                    
+-                    // Trigger selection if Menu is initialized
+-                    if (_menuControls["ModelMenu"] is ModelMenuControl mm)
+-                    {
+-                        foreach(var item in mm.Slot1ModelListBoxControl.Items)
+-                        {
+-                            if (item.ToString() == savedSlot1)
+-                            {
+-                                mm.Slot1ModelListBoxControl.SelectedItem = item;
+-                                break;
+-                            }
+-                        }
+-                    }
+-                    
+-                    // Wait for Slot 1 loading to finish
+-                    while (FileManager.CurrentlyLoadingModel)
+-                    {
+-                        await Task.Delay(100);
+-                    }
+-                }
+-                else
+-                {
+-                    Dictionary.lastLoadedModel = "N/A"; // Force reset
+-                }
+-            }
+-
+-            // 3. Validate Slot 2
+-            if (savedSlot2 != "N/A")
+-            {
+-                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bin", "models", "Slot2", savedSlot2);
+-                if (File.Exists(path))
+-                {
+-                    // Do NOT set Dictionary.lastLoadedModelSlot2 here.
+-
+-                    if (_menuControls["ModelMenu"] is ModelMenuControl mm)
+-                    {
+-                        foreach (var item in mm.ModelListBoxControl.Items)
+-                        {
+-                            if (item.ToString() == savedSlot2)
+-                            {
+-                                mm.ModelListBoxControl.SelectedItem = item;
+-                                break;
+-                            }
+-                        }
+-                    }
+-                    
+-                    // Wait for Slot 2 loading to finish
+-                    while (FileManager.CurrentlyLoadingSecondaryModel)
+-                    {
+-                        await Task.Delay(100);
+-                    }
+-                }
+-                else
+-                {
+-                    Dictionary.lastLoadedModelSlot2 = "N/A"; // Force reset
+-                }
+-            }
+-
+-            // 4. Validate Scope Model
+-            string scopePath = Dictionary.filelocationState.TryGetValue("Scope Model Location", out var loc) ? loc.ToString() : "";
+-            if (!string.IsNullOrEmpty(scopePath) && scopePath != "N/A")
+-            {
+-                string path = scopePath;
+-                if (!Path.IsPathRooted(path))
+-                {
+-                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+-                }
+-
+-                if (File.Exists(path))
+-                {
+-                    // Initialize WeaponSlotManager (this calls LoadModel)
+-                    WeaponSlotManager.Instance.Initialize();
+-
+-                    // Wait for Scope model loading to finish
+-                    while (WeaponSlotManager.CurrentlyLoadingScopeModel)
+-                    {
+-                        await Task.Delay(100);
+-                    }
+-                }
+-            }
+-        }
+-
+-
+-        
+-        private void ToggleToggle(string key, AToggle? toggle)
+-        {
+-            if (toggle == null) return;
+-            // Simulate click to trigger all standard behavior
+-            Application.Current.Dispatcher.Invoke(() => toggle.Reader.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent)));
+-        }
+-
+         #region Unimplemented Methods (For Controls)
+ 
+@@ -1940,3 +1455,2 @@
+
+     #endregion
+ }
+-

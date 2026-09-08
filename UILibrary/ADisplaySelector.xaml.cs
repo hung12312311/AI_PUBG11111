@@ -19,6 +19,7 @@ namespace Aimmy2.UILibrary
         public ADisplaySelector()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             Loaded += ADisplaySelector_Loaded;
 
             // Subscribe to theme and display changes

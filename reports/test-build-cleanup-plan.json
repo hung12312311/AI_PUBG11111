@@ -1,0 +1,50 @@
+[
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\obj",
+    "Bytes": 233344023.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\scratch\\wgc-smoke",
+    "Bytes": 27961850.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\CaptureChecks\\bin",
+    "Bytes": 42224196.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\CaptureChecks\\obj",
+    "Bytes": 258910.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\GuiChecks\\bin",
+    "Bytes": 80318493.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\GuiChecks\\obj",
+    "Bytes": 399282.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\PipelineChecks\\bin",
+    "Bytes": 112412272.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\PipelineChecks\\obj",
+    "Bytes": 285574.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\StartupChecks\\bin",
+    "Bytes": 252454731.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\StartupChecks\\obj",
+    "Bytes": 431684.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\UiRegressionChecks\\bin",
+    "Bytes": 252813220.0
+  },
+  {
+    "Path": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\tests\\UiRegressionChecks\\obj",
+    "Bytes": 486260.0
+  }
+]

@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 
 namespace MouseMovementLibraries.ddxoftSupport
 {
@@ -58,7 +58,8 @@ namespace MouseMovementLibraries.ddxoftSupport
 
         public int Load(string dllfile)
         {
-            m_hinst = LoadLibrary(dllfile);
+            if (m_hinst != IntPtr.Zero) return GetDDfunAddress(m_hinst);
+            m_hinst = LoadLibrary(System.IO.Path.GetFullPath(dllfile));
             if (m_hinst.Equals(IntPtr.Zero))
             {
                 return -2;

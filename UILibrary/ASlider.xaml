@@ -18,6 +18,7 @@
                 BorderThickness="1,0,1,0"
                 BorderBrush="#3FFFFFFF">
             <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Label x:Name="SliderTitle"
                        Padding="10,10,10,10"
                        FontFamily="{StaticResource Atkinson Hyperlegible}"
@@ -27,9 +28,8 @@
                        FontSize="13"
                        VerticalAlignment="Top"
                        Height="40"
-                       HorizontalAlignment="Left"
-                       Width="172" />
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Height="40" Margin="0,0,10,0">
+                       HorizontalAlignment="Stretch" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Height="40" Margin="0,0,10,0">
                     <TextBox x:Name="ValueInput"
                              FontFamily="{StaticResource Atkinson Hyperlegible}"
                              Text="0.95"
@@ -50,14 +50,14 @@
                            FontSize="13"
                            VerticalAlignment="Center" />
                 </StackPanel>
-                <Slider x:Name="Slider"
+                <Slider Grid.ColumnSpan="2" x:Name="Slider"
                         Margin="35,40,35,0"
                         VerticalAlignment="Top"
                         Foreground="White"
                         IsSnapToTickEnabled="True"
                         Value="2"
                         TickFrequency="0.01" />
-                <Ant:Button x:Name="SubtractOne"
+                <Ant:Button Grid.ColumnSpan="2" x:Name="SubtractOne"
                             Tag="Theme:Background"
                             BorderBrush="{x:Null}"
                             EffectBrush="{x:Null}"
@@ -72,7 +72,7 @@
                             BorderThickness="0,0,0,0"
                             FontSize="10"
                             Foreground="White" />
-                <Ant:Button x:Name="AddOne"
+                <Ant:Button Grid.ColumnSpan="2" x:Name="AddOne"
                             Tag="Theme:Background"
                             BorderBrush="{x:Null}"
                             EffectBrush="{x:Null}"

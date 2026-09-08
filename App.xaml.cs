@@ -1,4 +1,4 @@
-using Aimmy2.Theme;
+﻿using Aimmy2.Theme;
 using Class;
 using InputLogic;
 using System.Windows;
@@ -20,6 +20,7 @@ namespace Aimmy2
             Directory.SetCurrentDirectory(AppContext.BaseDirectory);
             // Set up environment paths for CUDA and TensorRT DLLs
             ConfigureDllPaths();
+            global::Other.UiLanguage.Initialize();
 
             if (e.Args.Length >= 2 && e.Args[0] == "--validate-engine")
             {
@@ -31,12 +32,24 @@ namespace Aimmy2
                 {
                     using (var engine = new Aimmy2.AILogic.TensorRTEngine(enginePath))
                     {
-                        // Successfully verified
+                        // Warm-up validates buffers, output adapters and actual inference as well as deserialization.
+                        int width = engine.InputDims[3], height = engine.InputDims[2];
+                        var pixels = Enumerable.Repeat(0.5f, checked(width * height * 3)).ToArray();
+                        var timer = System.Diagnostics.Stopwatch.StartNew();
+                        var output = engine.RunDetections(pixels, new System.Drawing.Rectangle(0, 0, width, height), .25f);
+                        timer.Stop();
+                        if (e.Args.Length >= 3)
+                            File.WriteAllText(e.Args[2], Newtonsoft.Json.JsonConvert.SerializeObject(new {
+                                Passed = true, engine.Metadata, engine.InputDims, engine.ProfileMin, engine.ProfileMax,
+                                DetectionShape = output.Dimensions.ToArray(), WarmupMilliseconds = timer.Elapsed.TotalMilliseconds
+                            }, Newtonsoft.Json.Formatting.Indented));
                     }
                     System.Environment.Exit(0);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    if (e.Args.Length >= 3)
+                        File.WriteAllText(e.Args[2], Newtonsoft.Json.JsonConvert.SerializeObject(new { Passed = false, Error = ex.ToString() }, Newtonsoft.Json.Formatting.Indented));
                     System.Environment.Exit(1);
                 }
             }
@@ -66,7 +79,7 @@ namespace Aimmy2
             catch (Exception ex)
             {
                 // If startup window fails, launch main window directly
-                MessageBox.Show($"Startup animation failed: {ex.Message}\nLaunching main application...",
+                global::Other.LocalizedMessageBox.Show($"Startup animation failed: {ex.Message}\nLaunching main application...",
                               "Aimmy AI", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 var mainWindow = new MainWindow();
@@ -229,3 +242,4 @@ namespace Aimmy2
         }
     }
 }
+

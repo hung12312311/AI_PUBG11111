@@ -1,0 +1,77 @@
+{
+  "Passed": true,
+  "Metadata": {
+    "Format": "TensorRT",
+    "Backend": "TensorRT",
+    "ModelPath": "C:\\Users\\sihun\\Downloads\\Aimmy2.5_update_V1.7\\bin\\Build\\bin\\models\\Slot1\\best_dynamic_fp32_YOLO26.engine",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        -1,
+        -1
+      ],
+      "DataType": "kFLOAT"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "kFLOAT"
+      }
+    ],
+    "Options": {
+      "InputLayout": "Auto",
+      "OutputLayout": "Auto",
+      "Postprocess": "Auto",
+      "Objectness": false,
+      "NormalizedBoxes": false,
+      "Letterbox": false,
+      "InputScale": 0.003921569,
+      "InputOffset": 0.0,
+      "Bgr": false,
+      "DynamicWidth": 640,
+      "DynamicHeight": 640,
+      "Stride": null,
+      "ClassCount": 0,
+      "BoxesName": "boxes",
+      "ScoresName": "scores",
+      "ClassesName": "classes",
+      "CountName": "num_detections"
+    },
+    "Nhwc": false,
+    "Dynamic": true,
+    "WidthAxis": 3,
+    "HeightAxis": 2,
+    "ClassCount": 0
+  },
+  "InputDims": [
+    1,
+    3,
+    640,
+    640
+  ],
+  "ProfileMin": [
+    1,
+    3,
+    320,
+    320
+  ],
+  "ProfileMax": [
+    1,
+    3,
+    640,
+    640
+  ],
+  "DetectionShape": [
+    1,
+    0,
+    6
+  ],
+  "WarmupMilliseconds": 34.9828
+}

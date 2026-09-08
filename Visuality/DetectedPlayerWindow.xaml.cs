@@ -1,4 +1,4 @@
-using Aimmy2.Class;
+﻿using Aimmy2.Class;
 using Aimmy2.Theme;
 using Class;
 using System.Runtime.InteropServices;
@@ -24,6 +24,10 @@ namespace Visuality
         public DetectedPlayerWindow()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
+            _performanceTimer.Tick += (_, _) => RefreshPerformanceOverlay();
+            IsVisibleChanged += (_, _) => { if (IsVisible) _performanceTimer.Start(); else _performanceTimer.Stop(); };
+            Closed += (_, _) => _performanceTimer.Stop();
 
             //Subscribe to my Onlyfans to exclude bad Behavior!
             ThemeManager.ExcludeWindowFromBackground(this);
@@ -45,6 +49,21 @@ namespace Visuality
             _cornerRadius = (int)Dictionary.sliderSettings["Corner Radius"];
             _borderThickness = Dictionary.sliderSettings["Border Thickness"];
             _boxOpacity = Dictionary.sliderSettings["Opacity"];
+        }
+
+        private readonly System.Windows.Threading.DispatcherTimer _performanceTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+        public void RefreshPerformanceOverlay()
+        {
+            bool enabled = Dictionary.toggleState["Show Detected Player"] && Dictionary.toggleState["Show Detection Performance"];
+            PerformanceBadge.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+            var manager = Other.FileManager.AIManager;
+            var stats = manager?.GetPerformanceSnapshot();
+            double fps = stats != null && stats.TryGetValue("InferenceFPS", out double liveFps) ? liveFps : 0;
+            string inference = stats != null && stats.TryGetValue("ModelInference", out double ms) ? $"{ms:F1} ms" : "—";
+            string capture = stats != null && stats.TryGetValue("ScreenGrab", out double captureMs) ? $"{captureMs:F1} ms" : "—";
+            CapturePerformance.Text = capture;
+            InferencePerformance.Text = inference;
+            FpsPerformance.Text = $"{fps:F0}";
         }
 
         protected override void OnSourceInitialized(EventArgs e)

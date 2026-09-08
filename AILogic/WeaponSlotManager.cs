@@ -42,15 +42,14 @@ namespace Aimmy2.AILogic
         {
             if (dims.Length != 4 || (dims[0] > 0 && dims[0] != 1) || dims[1] != 3)
                 throw new NotSupportedException("Scope model must use NCHW input [1,3,H,W].");
-            if (dims[2] > 0 && dims[3] > 0 && dims[2] != dims[3])
-                throw new NotSupportedException("Scope Image Size currently supports square inputs only.");
+
             bool dynamicInput = dims[2] <= 0 && dims[3] <= 0;
             if (engine && dynamicInput) throw new NotSupportedException("Scope TensorRT engine needs a resolved input size.");
             int savedSize = 640;
             if (Dictionary.dropdownState.TryGetValue("Scope Image Size", out var saved)
-                && int.TryParse(Convert.ToString((object)saved), out int parsed) && parsed >= 32 && parsed <= 2048) savedSize = parsed;
+                && int.TryParse(Convert.ToString((object)saved), out int parsed) && parsed > 0) savedSize = parsed;
             int size = dynamicInput ? savedSize : Math.Max(dims[2], dims[3]);
-            if (size <= 0 || size > 4096) throw new NotSupportedException("Invalid scope input size.");
+            if (size <= 0) throw new NotSupportedException("Invalid scope input size.");
             return (size, dynamicInput);
         }
 
@@ -58,7 +57,7 @@ namespace Aimmy2.AILogic
         {
             lock (_sessionLock)
             {
-                if (!_scopeDynamicInput || _isScopeEngine || size < 32 || size > 2048) return;
+                if (!_scopeDynamicInput || _isScopeEngine || size <= 0) return;
                 _scopeImageSize = size;
             }
             PublishScopeInput();
@@ -93,6 +92,7 @@ namespace Aimmy2.AILogic
         private int _numDetections = 8400;
         private int _numClasses = 7;
         
+        private readonly object _slotApplyLock = new();
         private int _activeSlot = 1; // 1 or 2
 
         // Snapshot settings for slots
@@ -237,7 +237,7 @@ namespace Aimmy2.AILogic
                             await Dictionary.ModelLoadSemaphore.WaitAsync();
                             try
                             {
-                                newSession = await Task.Run(() => new InferenceSession(absolutePath));
+                                newSession = await Task.Run(() => OnnxModelSessionFactory.Load(absolutePath, "Auto", _scopeImageSize));
                             }
                             finally
                             {
@@ -251,8 +251,9 @@ namespace Aimmy2.AILogic
                                 try
                                 {
                                     var input = newSession.InputMetadata.Single();
-                                    if (input.Value.ElementType != typeof(float)) throw new NotSupportedException("Scope input must be float32.");
-                                    shape = ReadScopeInputShape(input.Value.Dimensions, false);
+                                    var metadata = OnnxModelSessionFactory.Metadata(newSession);
+                                    var resolved = metadata.ResolveSize(_scopeImageSize);
+                                    shape = (resolved.Width, metadata.Dynamic);
                                     inputName = input.Key;
                                 }
                                 catch { newSession.Dispose(); throw; }
@@ -574,7 +575,7 @@ namespace Aimmy2.AILogic
 
                         // Update overlay directly during loop
                         UpdateScopeOverlay();
-                        ApplySlot(_activeSlot);
+                        ApplyCurrentSlot();
 
                         firstRun = false;
 
@@ -624,30 +625,26 @@ namespace Aimmy2.AILogic
                     int size = _scopeImageSize;
                     using var resized = new Bitmap(bitmap, new Size(size, size));
                     var input = PreProcess(resized, size);
+                    Tensor<float> output;
+                    var region = new Rectangle(0, 0, size, size);
                     if (_isScopeEngine && _scopeEngine != null)
                     {
-                        float[] inputData = input.ToArray();
-                        float[] outputData = _scopeEngine.RunInference(inputData);
-                        var output = new DenseTensor<float>(outputData, _scopeEngine.OutputDims);
-                        return PostProcess(output);
+                        output = _scopeEngine.RunDetections(input.ToArray(), region, 0);
                     }
                     else if (_scopeSession != null)
                     {
-                        var inputs = new List<NamedOnnxValue>
-                        {
-                            NamedOnnxValue.CreateFromTensor(_scopeInputName, input)
-                        };
-
-                        using var results = _scopeSession.Run(inputs);
-                        var output = results.First().AsTensor<float>();
-                        
-                        // Postprocess - Simple: get class with highest confidence
-                        return PostProcess(output);
+                        var metadata = OnnxModelSessionFactory.Metadata(_scopeSession);
+                        var resolved = metadata.ResolveSize(size);
+                        using var run = new RunOptions();
+                        output = OnnxModelSessionFactory.Run(_scopeSession, input.ToArray(),
+                            new CaptureTransform(region, resolved.Width, resolved.Height, metadata.Options.Letterbox), run, 0);
                     }
                     else
                     {
                         return -1;
                     }
+                    _isNmsFreeMod = true; // Canonical output is postprocessed [1,N,6].
+                    return PostProcess(output);
                 }
             }
             catch (Exception ex)
@@ -733,8 +730,20 @@ namespace Aimmy2.AILogic
         // .AddToggle("Show Detected Scope", tooltip: "Show overlay on screen with detected scope information.")
 
 
+        private void ApplyCurrentSlot()
+        {
+            // Read the active slot inside the same lock used by key switches.
+            lock (_slotApplyLock) ApplySlot(_activeSlot);
+        }
+
         private void ApplySlot(int slot)
         {
+            lock (_slotApplyLock) ApplySlotCore(slot);
+        }
+
+        private void ApplySlotCore(int slot)
+        {
+            if (slot is not (1 or 2)) throw new ArgumentOutOfRangeException(nameof(slot));
             _activeSlot = slot;
             // Switch AI Model Slot
             if (FileManager.AIManager != null)

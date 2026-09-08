@@ -1,0 +1,560 @@
+[
+  {
+    "Test": "Letterbox and negative monitor origin",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Stretch FOV640 to rectangular160x96",
+    "Status": "PASS"
+  },
+  {
+    "Test": "FP16 conversion",
+    "Status": "PASS"
+  },
+  {
+    "Test": "NCHW to NHWC/BGR/normalization",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Raw class-aware NMS and BNC",
+    "Status": "PASS"
+  },
+  {
+    "Test": "End-to-end keeps overlapping boxes and maps coordinates",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Ambiguous two-class output rejects guessing",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Multiple tensors and detection count",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_160x160_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        160,
+        160
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          525
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(160, 160)",
+    "Detections": 0,
+    "LoadAndRunMs": 1594.3457
+  },
+  {
+    "Test": "DirectML: best_160x160_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_160x160_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        160,
+        160
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(160, 160)",
+    "Detections": 0,
+    "LoadAndRunMs": 569.6642
+  },
+  {
+    "Test": "DirectML: best_160x160_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_256x256_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          1344
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 486.4056
+  },
+  {
+    "Test": "DirectML: best_256x256_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_256x256_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 472.9748
+  },
+  {
+    "Test": "DirectML: best_256x256_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_320x320_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        320,
+        320
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          2100
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(320, 320)",
+    "Detections": 0,
+    "LoadAndRunMs": 450.6812
+  },
+  {
+    "Test": "DirectML: best_320x320_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_320x320_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        320,
+        320
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(320, 320)",
+    "Detections": 0,
+    "LoadAndRunMs": 441.9127
+  },
+  {
+    "Test": "DirectML: best_320x320_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_416x416_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        416,
+        416
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          3549
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(416, 416)",
+    "Detections": 0,
+    "LoadAndRunMs": 543.3467
+  },
+  {
+    "Test": "DirectML: best_416x416_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_416x416_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        416,
+        416
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(416, 416)",
+    "Detections": 0,
+    "LoadAndRunMs": 448.7302
+  },
+  {
+    "Test": "DirectML: best_416x416_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_512x512_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        512,
+        512
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          5376
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(512, 512)",
+    "Detections": 0,
+    "LoadAndRunMs": 428.4366
+  },
+  {
+    "Test": "DirectML: best_512x512_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_512x512_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        512,
+        512
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(512, 512)",
+    "Detections": 0,
+    "LoadAndRunMs": 439.9031
+  },
+  {
+    "Test": "DirectML: best_512x512_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_640x640_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          6,
+          8400
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(640, 640)",
+    "Detections": 0,
+    "LoadAndRunMs": 408.9435
+  },
+  {
+    "Test": "DirectML: best_640x640_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_640x640_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(640, 640)",
+    "Detections": 0,
+    "LoadAndRunMs": 436.6722
+  },
+  {
+    "Test": "DirectML: best_640x640_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_dynamic_fp32_YOLO11.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        -1,
+        3,
+        -1,
+        -1
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          -1,
+          6,
+          -1
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "Auto",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 577.4431
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO11.onnx (64, 64)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO11.onnx (192, 192)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO11.onnx (224, 224)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO11.onnx (704, 704)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO11.onnx (640, 384)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO11.onnx",
+    "Status": "PASS"
+  },
+  {
+    "Model": "best_dynamic_fp32_YOLO26.onnx",
+    "Backend": "DirectML",
+    "Input": {
+      "Name": "images",
+      "Shape": [
+        -1,
+        3,
+        -1,
+        -1
+      ],
+      "DataType": "Float"
+    },
+    "Outputs": [
+      {
+        "Name": "output0",
+        "Shape": [
+          -1,
+          300,
+          6
+        ],
+        "DataType": "Float"
+      }
+    ],
+    "Classes": 2,
+    "Postprocess": "NmsFree",
+    "Resolved": "(256, 256)",
+    "Detections": 0,
+    "LoadAndRunMs": 493.9833
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO26.onnx (64, 64)",
+    "Status": "MODEL_RUNTIME_REJECTED",
+    "Error": "[ErrorCode:RuntimeException] Non-zero status code returned while running TopK node. Name:'/model.23/TopK' Status Message: E:\\_work\\1\\s\\onnxruntime\\core\\providers\\dml\\DmlExecutionProvider\\src\\MLOperatorAuthorImpl.cpp(2508)\\onnxruntime.dll!00007FFAC8DCF444: (caller: 00007FFAC8DCEE46) Exception(3) tid(4260) 80070057 The parameter is incorrect.\r\n"
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO26.onnx (192, 192)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO26.onnx (224, 224)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO26.onnx (704, 704)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO26.onnx (640, 384)",
+    "Status": "PASS",
+    "Detections": 0
+  },
+  {
+    "Test": "DirectML: best_dynamic_fp32_YOLO26.onnx",
+    "Status": "PASS"
+  }
+]

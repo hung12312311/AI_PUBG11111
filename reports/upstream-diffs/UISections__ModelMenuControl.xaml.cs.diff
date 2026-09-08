@@ -1,0 +1,152 @@
+--- Custom/UISections/ModelMenuControl.xaml.cs
+
++++ Upstream/UISections/ModelMenuControl.xaml.cs
+
+@@ -1,16 +1,10 @@
+
+-using System;
+-using System.Collections.Generic;
++using Aimmy2.UILibrary;
++using Other;
+ using System.Diagnostics;
+ using System.IO;
+-using System.Linq;
+-using System.Threading.Tasks;
+ using System.Windows;
+ using System.Windows.Controls;
+ using System.Windows.Threading;
+-using Aimmy2.Class;
+-using Aimmy2.UILibrary;
+-using Other;
+ using Visuality;
+-using System.Security.Cryptography;
+ 
+ namespace Aimmy2.Controls
+@@ -55,7 +49,4 @@
+
+         public ScrollViewer ModelMenuScrollViewer => ModelMenu;
+ 
+-        public ListBox Slot1ModelListBoxControl => Slot1ModelListBox;
+-        public Label Slot1NotifierControl => Slot1Notifier;
+-
+         // Override visibility changed to detect when tab is selected
+         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+@@ -88,5 +79,5 @@
+
+                     var loadingText = new TextBlock
+                     {
+-                        Text = "Đang tải cửa hàng...",
++                        Text = "Loading store...",
+                         Foreground = System.Windows.Media.Brushes.White,
+                         HorizontalAlignment = HorizontalAlignment.Center,
+@@ -97,5 +88,5 @@
+
+                     ConfigStoreScroller.Children.Add(new TextBlock
+                     {
+-                        Text = "Đang tải cửa hàng...",
++                        Text = "Loading store...",
+                         Foreground = System.Windows.Media.Brushes.White,
+                         HorizontalAlignment = HorizontalAlignment.Center,
+@@ -131,5 +122,5 @@
+
+                 await Dispatcher.InvokeAsync(() =>
+                 {
+-                    new NoticeBar($"Lỗi tải cửa hàng: {e.Message}", 10000).Show();
++                    new NoticeBar($"Failed to load store: {e.Message}", 10000).Show();
+ 
+                     // Show error in UI
+@@ -139,5 +130,5 @@
+
+                     ModelStoreScroller.Children.Add(new TextBlock
+                     {
+-                        Text = "Không tải được cửa hàng",
++                        Text = "Failed to load store",
+                         Foreground = System.Windows.Media.Brushes.Red,
+                         HorizontalAlignment = HorizontalAlignment.Center,
+@@ -187,10 +178,10 @@
+
+                     else
+                     {
+-                        new NoticeBar($"Không tìm thấy thư mục: {path}", 5000).Show();
++                        new NoticeBar($"Directory not found: {path}", 5000).Show();
+                     }
+                 }
+                 catch (Exception ex)
+                 {
+-                    new NoticeBar($"Không mở được thư mục: {ex.Message}", 5000).Show();
++                    new NoticeBar($"Failed to open folder: {ex.Message}", 5000).Show();
+                 }
+             }
+@@ -210,9 +201,4 @@
+
+         {
+             FilterListBoxBySearch(ModelListBox, (TextBox)sender);
+-        }
+-
+-        private void Slot1ModelSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+-        {
+-            FilterListBoxBySearch(Slot1ModelListBox, (TextBox)sender);
+         }
+ 
+@@ -261,8 +247,5 @@
+
+             {
+                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+-                bool valid = files.All(f => {
+-                    string ext = Path.GetExtension(f).ToLower();
+-                    return ext == ".onnx" || ext == ".engine" || ext == ".trt";
+-                });
++                bool valid = files.All(f => Path.GetExtension(f).Equals(".onnx", StringComparison.OrdinalIgnoreCase));
+                 e.Effects = valid ? DragDropEffects.Copy : DragDropEffects.None;
+             }
+@@ -283,6 +266,5 @@
+
+                 foreach (string file in files)
+                 {
+-                    string ext = Path.GetExtension(file).ToLower();
+-                    if (ext != ".onnx" && ext != ".engine" && ext != ".trt")
++                    if (!Path.GetExtension(file).Equals(".onnx", StringComparison.OrdinalIgnoreCase))
+                         continue;
+ 
+@@ -294,5 +276,5 @@
+
+                         string duplicatePath = Path.Combine(destDir, Path.GetFileNameWithoutExtension(fileName) + "-DUPLICATED" + Path.GetExtension(fileName));
+                         File.Move(file, duplicatePath);
+-                        new NoticeBar($"File trùng, đã đổi tên: {Path.GetFileName(duplicatePath)}", 3000).Show();
++                        new NoticeBar($"Duplicate model renamed: {Path.GetFileName(duplicatePath)}", 3000).Show();
+                         continue;
+                     }
+@@ -308,9 +290,9 @@
+
+ 
+                         ModelListBox.Items.Add(item);
+-                        new NoticeBar($"Đã chuyển model: {Path.GetFileName(destPath)}", 3000).Show();
++                        new NoticeBar($"Model moved: {Path.GetFileName(destPath)}", 3000).Show();
+                     }
+                     catch (Exception ex)
+                     {
+-                        new NoticeBar($"Lỗi di chuyển model: {ex.Message}", 5000).Show();
++                        new NoticeBar($"Error moving model: {ex.Message}", 5000).Show();
+                     }
+                 }
+@@ -354,5 +336,5 @@
+
+                         string duplicatePath = Path.Combine(destDir, Path.GetFileNameWithoutExtension(fileName) + "-DUPLICATED" + Path.GetExtension(fileName));
+                         File.Move(file, duplicatePath);
+-                        new NoticeBar($"File trùng, đã đổi tên: {Path.GetFileName(duplicatePath)}", 3000).Show();
++                        new NoticeBar($"Duplicate config renamed: {Path.GetFileName(duplicatePath)}", 3000).Show();
+                         continue;
+                     }
+@@ -369,9 +351,9 @@
+
+ 
+                         ConfigsListBox.Items.Add(item);
+-                        new NoticeBar($"Đã chuyển config: {Path.GetFileName(destPath)}", 3000).Show();
++                        new NoticeBar($"Config moved: {Path.GetFileName(destPath)}", 3000).Show();
+                     }
+                     catch (Exception ex)
+                     {
+-                        new NoticeBar($"Lỗi di chuyển config: {ex.Message}", 5000).Show();
++                        new NoticeBar($"Error moving config: {ex.Message}", 5000).Show();
+                     }
+                 }

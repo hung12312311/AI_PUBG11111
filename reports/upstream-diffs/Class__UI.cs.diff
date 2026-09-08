@@ -1,0 +1,117 @@
+--- Custom/Class/UI.cs
+
++++ Upstream/Class/UI.cs
+
+@@ -24,9 +24,4 @@
+
+         public ATitle? AT_AimConfig { get; set; }
+ 
+-        public ADropdown? D_Slot1MouseMovementMethod { get; set; }
+-        public ADropdown? D_Slot1MovementPath { get; set; }
+-        public ADropdown? D_Slot1DetectionAreaType { get; set; }
+-        public ADropdown? D_Slot1AimingBoundariesAlignment { get; set; }
+-
+         // Predictions
+         public ATitle? AT_Predictions { get; set; }
+@@ -37,31 +32,16 @@
+
+         public ComboBoxItem? DDI_ClosestToCenterScreen { get; set; }
+         public ADropdown? D_AimingBoundariesAlignment { get; set; }
+-        public ADropdown? D_Slot1TargetClass { get; set; }
+-        public ADropdown? D_Slot2TargetClass { get; set; }
+-        // Aim Config Shared Sliders (Slot 2)
++        public ADropdown? D_TargetClass { get; set; }
+         public ASlider? S_MouseSensitivity { get; set; }
+         public ASlider? S_MouseJitter { get; set; }
+         public ASlider? S_StickyAimThreshold { get; set; }
+-        public ASlider? S_TargetLockDuration { get; set; }
+         public ASlider? S_YOffset { get; set; }
+         public ASlider? S_YOffsetPercent { get; set; }
+         public ASlider? S_XOffset { get; set; }
+         public ASlider? S_XOffsetPercent { get; set; }
+-
+-        // Slot 1 Aim Config Sliders and Toggles
+-        public ASlider? S_Slot1MouseSensitivity { get; set; }
+-        public ASlider? S_Slot1MouseJitter { get; set; }
+-        public ASlider? S_Slot1YOffset { get; set; }
+-        public ASlider? S_Slot1YOffsetPercent { get; set; }
+-        public ASlider? S_Slot1XOffset { get; set; }
+-        public ASlider? S_Slot1XOffsetPercent { get; set; }
+-        public AToggle? T_Slot1XAxisPercentageAdjustment { get; set; }
+-        public AToggle? T_Slot1YAxisPercentageAdjustment { get; set; }
+-        
+         public ASlider? S_EMASmoothing { get; set; }
+         public ASlider? S_KalmanLeadTime { get; set; }
+         public ASlider? S_WiseTheFoxLeadTime { get; set; }
+         public ASlider? S_ShalloeLeadMultiplier { get; set; }
+-        public ASlider? S_CALeadMultiplier { get; set; }
+ 
+         // Triggerbot
+@@ -80,5 +60,4 @@
+
+         public AToggle? T_DynamicFOV { get; set; }
+         public AToggle? T_ThirdPersonSupport { get; set; }
+-        public AToggle? T_VirtualCrosshair { get; set; }
+         public AKeyChanger? C_DynamicFOV { get; set; }
+         //--
+@@ -88,7 +67,4 @@
+
+         public ASlider? S_FOVSize { get; set; }
+         public ASlider? S_DynamicFOVSize { get; set; }
+-        public AColorChanger? CC_CrosshairColor { get; set; }
+-        public ASlider? S_CrosshairSize { get; set; }
+-        public AKeyChanger? C_CrosshairHideKey1 { get; set; }
+ 
+         // Player Detection
+@@ -108,4 +84,5 @@
+
+         // Model Settings
+         public ATitle? AT_ModelSettings { get; set; }
++        public ASlider? S_AIFpsLimit { get; set; }
+ 
+         // Settings UI
+@@ -115,16 +92,10 @@
+
+         public ADropdown? D_MouseMovementMethod { get; set; }
+         public ADropdown? D_ScreenCaptureMethod { get; set; }
+-        public ADropdown? D_Slot1ImageSize { get; set; }
+-        public ADropdown? D_Slot2ImageSize { get; set; }
+-        public AToggle? T_Slot1PriorityAiming { get; set; }
+-        public AKeyChanger? C_Slot1PriorityKey { get; set; }
+-        public AToggle? T_Slot2PriorityAiming { get; set; }
+-        public AKeyChanger? C_Slot2PriorityKey { get; set; }
++        public ADropdown? D_ImageSize { get; set; }
+         public ComboBoxItem? DDI_LGHUB { get; set; }
+         public ComboBoxItem? DDI_RazerSynapse { get; set; }
+         public ComboBoxItem? DDI_ddxoft { get; set; }
+         public AToggle? T_DebugMode { get; set; }
+-        public ASlider? S_Slot1AIMinimumConfidence { get; set; }
+-        public ASlider? S_Slot2AIMinimumConfidence { get; set; }
++        public ASlider? S_AIMinimumConfidence { get; set; }
+         public AToggle? T_MouseBackgroundEffect { get; set; }
+         public AToggle? T_UITopMost { get; set; }
+@@ -139,13 +110,4 @@
+
+         public AToggle? T_YAxisPercentageAdjustment { get; set; }
+ 
+-        // Recoil Config
+-        public ADropdown? D_ScopeCaptureMethod { get; set; }
+-        public ASlider? S_ScopeConfidence { get; set; }
+-        public ASlider? S_WeaponScanDelay { get; set; }
+-        public AToggle? T_ScopeRecoil { get; set; }
+-        public AToggle? T_WeaponRecognition { get; set; }
+-        public AKeyChanger? C_RecoilKeybind { get; set; }
+-        public ASlider? S_MouseWheelAdjustStep { get; set; }
+-        
+         // Theme Color Changer
+         public ATitle? AT_ThemeColorWheel { get; set; }
+@@ -161,8 +123,4 @@
+
+         // Stores
+         public APButton? B_RepoManager { get; set; }
+-
+-        // Fast Loot
+-        public AToggle? T_FastLoot { get; set; }
+-        public AKeyChanger? C_FastLootKeybind { get; set; }
+     }
+ }

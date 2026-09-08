@@ -1,0 +1,82 @@
+--- Custom/UILibrary/ASlider.xaml.cs
+
++++ Upstream/UILibrary/ASlider.xaml.cs
+
+@@ -2,5 +2,4 @@
+
+ using System.Windows.Controls;
+ using System.Windows.Input;
+-using System.Globalization;
+ 
+ namespace Aimmy2.UILibrary
+@@ -11,10 +10,13 @@
+
+     public partial class ASlider : UserControl
+     {
++        private readonly string _notifierText;
++        private Func<double, string>? _valueFormatter;
++
+         public ASlider(string Text, string NotifierText, double ButtonSteps, string? tooltip = null)
+         {
+             InitializeComponent();
+ 
++            _notifierText = NotifierText;
+             SliderTitle.Content = Text;
+-            UnitLabel.Content = NotifierText;
+ 
+             if (!string.IsNullOrEmpty(tooltip))
+@@ -28,18 +30,6 @@
+
+             Slider.ValueChanged += (s, e) =>
+             {
+-                if (!ValueInput.IsFocused)
+-                    ValueInput.Text = $"{Slider.Value:F2}";
++                UpdateNotifier();
+             };
+-
+-            ValueInput.KeyDown += (s, e) =>
+-            {
+-                if (e.Key == Key.Enter)
+-                {
+-                    ValidateInput();
+-                    Keyboard.ClearFocus();
+-                }
+-            };
+-            
+-            ValueInput.LostFocus += (s, e) => ValidateInput();
+ 
+             SubtractOne.Click += (s, e) => UpdateSliderValue(-ButtonSteps);
+@@ -54,21 +44,18 @@
+
+         }
+ 
+-        private void ValidateInput()
+-        {
+-            // Both separators mean a decimal point here, never a thousands separator.
+-            string input = ValueInput.Text.Trim().Replace(',', '.');
+-            if (double.TryParse(input, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+-                CultureInfo.InvariantCulture, out double val) && double.IsFinite(val))
+-            {
+-                if (val < Slider.Minimum) val = Slider.Minimum;
+-                if (val > Slider.Maximum) val = Slider.Maximum;
+-                Slider.Value = val;
+-            }
+-            ValueInput.Text = $"{Slider.Value:F2}";
+-        }
+-
+         private void UpdateSliderValue(double change)
+         {
+             Slider.Value = Math.Round(Slider.Value + change, 2);
++        }
++
++        public void SetValueFormatter(Func<double, string> valueFormatter)
++        {
++            _valueFormatter = valueFormatter;
++            UpdateNotifier();
++        }
++
++        private void UpdateNotifier()
++        {
++            AdjustNotifier.Content = _valueFormatter?.Invoke(Slider.Value) ?? $"{Slider.Value:F2} {_notifierText}";
+         }
+ 

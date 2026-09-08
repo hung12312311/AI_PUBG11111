@@ -1,0 +1,193 @@
+--- Custom/Visuality/DetectedPlayerWindow.xaml.cs
+
++++ Upstream/Visuality/DetectedPlayerWindow.xaml.cs
+
+@@ -4,5 +4,4 @@
+
+ using System.Runtime.InteropServices;
+ using System.Windows;
+-using System.Windows.Controls;
+ using System.Windows.Interop;
+ using System.Windows.Media;
+@@ -40,10 +39,4 @@
+
+             PropertyChanger.ReceiveDPWBorderThickness = ChangeBorderThickness;
+             PropertyChanger.ReceiveDPWOpacity = ChangeOpacity;
+-
+-            // Load initial values from Dictionary
+-            _fontSize = (int)Dictionary.sliderSettings["AI Confidence Font Size"];
+-            _cornerRadius = (int)Dictionary.sliderSettings["Corner Radius"];
+-            _borderThickness = Dictionary.sliderSettings["Border Thickness"];
+-            _boxOpacity = Dictionary.sliderSettings["Opacity"];
+         }
+ 
+@@ -102,5 +95,5 @@
+
+ 
+                 // Maximize to cover entire display
+-                // Keep Normal: explicit monitor bounds provide full-screen coverage without activation.
++                this.WindowState = WindowState.Maximized;
+ 
+                 // Update tracer start position (changed to be dynamic)
+@@ -142,157 +135,15 @@
+
+         }
+ 
+-        // Store UI settings for DrawAllDetections
+-        private int _fontSize = 20;
+-        private int _cornerRadius = 1;
+-        private double _borderThickness = 1;
+-        private double _boxOpacity = 1;
++        private void UpdateDPFontSize(int newint) => DetectedPlayerConfidence.FontSize = newint;
+ 
+-        private void UpdateDPFontSize(int newint)
+-        {
+-            _fontSize = newint;
+-            DetectedPlayerConfidence.FontSize = newint;
+-        }
+-
+-        private void ChangeCornerRadius(int newint)
+-        {
+-            _cornerRadius = newint;
+-            DetectedPlayerFocus.CornerRadius = new CornerRadius(newint);
+-        }
++        private void ChangeCornerRadius(int newint) => DetectedPlayerFocus.CornerRadius = new CornerRadius(newint);
+ 
+         private void ChangeBorderThickness(double newdouble)
+         {
+-            _borderThickness = newdouble;
+             DetectedPlayerFocus.BorderThickness = new Thickness(newdouble);
+             DetectedTracers.StrokeThickness = newdouble;
+         }
+ 
+-        private void ChangeOpacity(double newdouble)
+-        {
+-            _boxOpacity = newdouble;
+-            DetectedPlayerFocus.Opacity = newdouble;
+-        }
+-
+-        // Color palette for different classes
+-        private readonly Dictionary<string, Color> _classColors = new Dictionary<string, Color>
+-        {
+-            { "head", Color.FromRgb(255, 0, 0) },      // Red
+-            { "dau", Color.FromRgb(255, 0, 0) },       // Red (Vietnamese)
+-            { "body", Color.FromRgb(0, 255, 0) },      // Green
+-            { "than", Color.FromRgb(0, 255, 0) },      // Green (Vietnamese)
+-            { "enemy", Color.FromRgb(0, 255, 255) },   // Cyan
+-            { "default", Color.FromRgb(255, 255, 0) }  // Yellow
+-        };
+-
+-
+-        private Color GetColorFromState(string key, Color defaultColor)
+-        {
+-            if (Dictionary.colorState.TryGetValue(key, out var val) && val != null)
+-            {
+-                try
+-                {
+-                    return (Color)ColorConverter.ConvertFromString(val.ToString());
+-                }
+-                catch
+-                {
+-                }
+-            }
+-            return defaultColor;
+-        }
+-
+-        public void DrawAllDetections(
+-            List<(string ClassName, double X, double Y, double Width, double Height, double Confidence)> detections,
+-            bool showConfidence = false,
+-            bool isEngine = false,
+-            bool isSingleClass = false)
+-        {
+-            Application.Current.Dispatcher.Invoke(() =>
+-            {
+-                // Clear previous boxes
+-                DetectionCanvas.Children.Clear();
+-
+-                foreach (var detection in detections)
+-                {
+-                    // Determine color based on model type (ONNX vs Engine) and class count
+-                    Color boxColor;
+-                    string classLower = detection.ClassName?.ToLower() ?? "";
+-                    
+-                    if (isSingleClass)
+-                    {
+-                        // 1 class (bất kể ONNX hay Engine) sẽ là màu xanh dương mặc định
+-                        boxColor = GetColorFromState("Single Class Color", Color.FromRgb(0, 120, 255));
+-                    }
+-                    else
+-                    {
+-                        if (isEngine)
+-                        {
+-                            // Engine 2 class: Body màu vàng, Head màu xanh dương mặc định
+-                            if (classLower.Contains("head") || classLower.Contains("dau") || classLower.Contains("đầu") || classLower.Contains("sọ"))
+-                            {
+-                                boxColor = GetColorFromState("Engine Head Color", Color.FromRgb(0, 120, 255)); // Head
+-                            }
+-                            else
+-                            {
+-                                boxColor = GetColorFromState("Engine Body Color", Color.FromRgb(255, 255, 0)); // Body / default
+-                            }
+-                        }
+-                        else
+-                        {
+-                            // ONNX 2 class: Body màu xanh lá cây, Head màu đỏ mặc định
+-                            if (classLower.Contains("head") || classLower.Contains("dau") || classLower.Contains("đầu") || classLower.Contains("sọ"))
+-                            {
+-                                boxColor = GetColorFromState("ONNX Head Color", Color.FromRgb(255, 0, 0)); // Head
+-                            }
+-                            else
+-                            {
+-                                boxColor = GetColorFromState("ONNX Body Color", Color.FromRgb(0, 255, 0)); // Body / default
+-                            }
+-                        }
+-                    }
+-
+-                    // Create border for this detection
+-                    var border = new System.Windows.Controls.Border
+-                    {
+-                        Width = detection.Width,
+-                        Height = detection.Height,
+-                        BorderBrush = new SolidColorBrush(boxColor),
+-                        BorderThickness = new Thickness(_borderThickness),
+-                        CornerRadius = new CornerRadius(_cornerRadius),
+-                        Opacity = _boxOpacity
+-                    };
+-
+-                    // Position the border
+-                    Canvas.SetLeft(border, detection.X);
+-                    Canvas.SetTop(border, detection.Y);
+-
+-                    DetectionCanvas.Children.Add(border);
+-
+-                    // Only add label if showConfidence is true
+-                    if (showConfidence)
+-                    {
+-                        var label = new System.Windows.Controls.TextBlock
+-                        {
+-                            Text = $"{detection.ClassName}: {Math.Round(detection.Confidence * 100, 1)}%",
+-                            Foreground = new SolidColorBrush(boxColor),
+-                            FontSize = _fontSize,
+-                            FontWeight = FontWeights.Bold,
+-                            Background = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0))
+-                        };
+-
+-                        Canvas.SetLeft(label, detection.X);
+-                        Canvas.SetTop(label, detection.Y - 20);
+-
+-                        DetectionCanvas.Children.Add(label);
+-                    }
+-                }
+-            });
+-        }
+-
+-        public void ClearAllDetections()
+-        {
+-            Application.Current.Dispatcher.Invoke(() =>
+-            {
+-                DetectionCanvas.Children.Clear();
+-            });
+-        }
++        private void ChangeOpacity(double newdouble) => DetectedPlayerFocus.Opacity = newdouble;
+ 
+         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)

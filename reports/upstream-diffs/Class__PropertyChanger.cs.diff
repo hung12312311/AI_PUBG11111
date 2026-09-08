@@ -1,0 +1,20 @@
+--- Custom/Class/PropertyChanger.cs
+
++++ Upstream/Class/PropertyChanger.cs
+
+@@ -45,14 +45,4 @@
+
+ 
+         public static Action<string, bool>? ReceiveNewConfig { private get; set; } = null;
+-
+-        // Crosshair Size
+-        public static void PostCrosshairSize(double newsize) => ReceiveCrosshairSize?.Invoke(newsize);
+-
+-        public static Action<double>? ReceiveCrosshairSize { private get; set; } = null;
+-
+-        // Crosshair Color
+-        public static void PostCrosshairColor(System.Windows.Media.Color newcolor) => ReceiveCrosshairColor?.Invoke(newcolor);
+-
+-        public static Action<System.Windows.Media.Color>? ReceiveCrosshairColor { private get; set; } = null;
+     }
+ }

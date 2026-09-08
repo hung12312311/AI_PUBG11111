@@ -1,0 +1,12 @@
+--- Custom/MainWindow.xaml
+
++++ Upstream/MainWindow.xaml
+
+@@ -11,5 +11,5 @@
+
+         mc:Ignorable="d"
+         Title="Aimmy"
+-        Height="600"
++        Height="444"
+         MinHeight="444"
+         Width="670"

@@ -96,7 +96,8 @@ internal sealed class WindowsGraphicsCapture : IDisposable
                     _latestTexture?.Dispose();
                     _latestTexture = null;
                     _size = size;
-                    frame.Dispose();
+                    second?.Dispose();
+                    first.Dispose();
                     sender.Recreate(_winrtDevice!, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, size);
                     return;
                 }
@@ -104,6 +105,8 @@ internal sealed class WindowsGraphicsCapture : IDisposable
                 var textureId = typeof(ID3D11Texture2D).GUID;
                 Marshal.ThrowExceptionForHR(access.GetInterface(ref textureId, out var pointer));
                 using var texture = new ID3D11Texture2D(pointer);
+                if (texture.Description.Format != Format.B8G8R8A8_UNorm)
+                    throw new NotSupportedException($"Unexpected WGC pixel format: {texture.Description.Format}");
                 if (_latestTexture == null || _latestTexture.Description.Width != bounds.Width
                     || _latestTexture.Description.Height != bounds.Height)
                 {
@@ -166,8 +169,8 @@ internal sealed class WindowsGraphicsCapture : IDisposable
         // An unchanged desktop may not deliver another frame. The cached ROI is
         // valid until a newer frame, a display change, or an explicit session error.
         var size = _size;
-        if (tensor != null && (bounds.Width != bounds.Height || tensor.Length != 3 * bounds.Width * bounds.Height))
-            throw new ArgumentException("WGC tensor dimensions must match the square capture region.");
+        if (tensor != null && tensor.Length != checked(3 * bounds.Width * bounds.Height))
+            throw new ArgumentException("WGC tensor dimensions must match the capture region.");
         if (tensor == null && (_bitmap == null || _bitmap.Width != bounds.Width || _bitmap.Height != bounds.Height))
         {
             _bitmap?.Dispose();
@@ -189,7 +192,7 @@ internal sealed class WindowsGraphicsCapture : IDisposable
             {
                 if (tensor != null)
                 {
-                    if (left == relativeX && top == relativeY && right - left == bounds.Width && bottom - top == bounds.Height)
+                    if (bounds.Width == bounds.Height && left == relativeX && top == relativeY && right - left == bounds.Width && bottom - top == bounds.Height)
                         MathUtil.DxMapToFloatArray((byte*)mapped.DataPointer, (int)mapped.RowPitch, tensor, bounds.Width, thirdPersonSupport);
                     else
                     {

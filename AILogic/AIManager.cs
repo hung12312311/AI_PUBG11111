@@ -18,7 +18,7 @@ using static Other.LogManager;
 
 namespace Aimmy2.AILogic
 {
-    public class AIManager : IDisposable
+    public partial class AIManager : IDisposable
     {
         #region Variables
 
@@ -37,17 +37,26 @@ namespace Aimmy2.AILogic
 
         public void RequestSizeChange(int newSize, int slot)
         {
-            if (slot == 1) _slot1ImageSize = newSize;
-            else _slot2ImageSize = newSize;
-
-            lock (_sizeLock)
+            if (newSize <= 0) throw new ArgumentOutOfRangeException(nameof(newSize));
+            var metadata = GetModelMetadata(slot);
+            if (metadata != null && (!metadata.Dynamic || metadata.Format == "TensorRT")) return;
+            lock (_modelLock)
             {
-                _sizeChangePending = true;
+                if (metadata != null)
+                {
+                    metadata.Options.DynamicWidth = newSize;
+                    metadata.Options.DynamicHeight = newSize;
+                    metadata.ResolveSize(newSize);
+                }
+                if (slot == 1) _slot1ImageSize = newSize;
+                else _slot2ImageSize = newSize;
+                _sizeChangePending = false;
             }
         }
 
         // Dynamic properties instead of constants
-        public int IMAGE_SIZE => ActiveSlot == 1 ? _slot1ImageSize : _slot2ImageSize;
+        public int IMAGE_SIZE => Dictionary.sliderSettings.TryGetValue("Capture Size", out var capture) && Convert.ToInt32(capture) > 0
+            ? Convert.ToInt32(capture) : ActiveSlot == 1 ? _slot1ImageSize : _slot2ImageSize;
         internal int GetSlotImageSize(int slot) => slot == 1 ? _slot1ImageSize : _slot2ImageSize;
 
         private void PublishSlotImageSize(int slot, int size, bool dynamicModel)
@@ -66,7 +75,7 @@ namespace Aimmy2.AILogic
             {
                 var path = Path.Combine(AppContext.BaseDirectory, "bin", "dropdown.cfg");
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, Newtonsoft.Json.JsonConvert.SerializeObject(Dictionary.dropdownState, Newtonsoft.Json.Formatting.Indented));
+                global::Class.SaveDictionary.WriteJSON(Dictionary.dropdownState, path);
             }
             catch (Exception ex) { Log(LogLevel.Warning, $"Cannot save model image size: {ex.Message}"); }
             Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
@@ -210,17 +219,17 @@ namespace Aimmy2.AILogic
 
         private class BenchmarkData
         {
-            public long TotalTime { get; set; }
+            public double TotalTime { get; set; }
             public int CallCount { get; set; }
-            public long MinTime { get; set; } = long.MaxValue;
-            public long MaxTime { get; set; }
+            public double MinTime { get; set; } = double.MaxValue;
+            public double MaxTime { get; set; }
             public double AverageTime => CallCount > 0 ? (double)TotalTime / CallCount : 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private IDisposable Benchmark(string name)
         {
-            if (!(bool)Dictionary.toggleState["Debug Mode"]) return NoopBenchmark.Instance;
+            if (!(bool)Dictionary.toggleState["Debug Mode"] && name is not ("ModelInference" or "ScreenGrab" or "GetClosestPrediction")) return NoopBenchmark.Instance;
             return new BenchmarkScope(this, name);
         }
 
@@ -235,22 +244,57 @@ namespace Aimmy2.AILogic
             private readonly AIManager _manager;
             private readonly string _name;
             private readonly Stopwatch _sw;
+            private readonly string _context;
 
             public BenchmarkScope(AIManager manager, string name)
             {
                 _manager = manager;
                 _name = name;
+                _context = manager.PerformanceContext();
                 _sw = Stopwatch.StartNew();
             }
 
             public void Dispose()
             {
                 _sw.Stop();
-                _manager.RecordBenchmark(_name, _sw.ElapsedMilliseconds);
+                bool emptyWgcPoll = _name == "ScreenGrab" && _manager._captureManager.LastCaptureWaitingForFrame;
+                if (!emptyWgcPoll && _context == _manager.PerformanceContext())
+                    _manager.RecordBenchmark(_name, _sw.Elapsed.TotalMilliseconds);
             }
         }
 
-        private void RecordBenchmark(string name, long elapsedMs)
+        private readonly Queue<(long Tick, string Name, double Ms)> _recentPerformance = new();
+        private string _performanceContext = "";
+        private long _performanceStart;
+        private string PerformanceContext()
+        {
+            int slot = ActiveSlot;
+            object? model = slot == 2 ? (object?)_onnxModelSlot2 ?? _engineModelSlot2 : (object?)_onnxModelSlot1 ?? _engineModelSlot1;
+            return $"{Dictionary.dropdownState["Screen Capture Method"]}|{slot}|{(model == null ? 0 : RuntimeHelpers.GetHashCode(model))}|{IMAGE_SIZE}";
+        }
+        private void TrimPerformance(long now)
+        {
+            string context = PerformanceContext();
+            if (_performanceContext != context)
+            {
+                _recentPerformance.Clear(); _performanceContext = context; _performanceStart = now;
+            }
+            while (_recentPerformance.TryPeek(out var item) && Stopwatch.GetElapsedTime(item.Tick, now).TotalSeconds >= 1)
+                _recentPerformance.Dequeue();
+        }
+        public Dictionary<string, double> GetPerformanceSnapshot()
+        {
+            lock (_benchmarkLock)
+            {
+                long now = Stopwatch.GetTimestamp(); TrimPerformance(now);
+                var result = _recentPerformance.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Average(v => v.Ms));
+                double seconds = Math.Clamp(Stopwatch.GetElapsedTime(_performanceStart, now).TotalSeconds, .1, 1);
+                result["InferenceFPS"] = _recentPerformance.Count(x => x.Name == "ModelInference") / seconds;
+                return result;
+            }
+        }
+
+        private void RecordBenchmark(string name, double elapsedMs)
         {
             lock (_benchmarkLock)
             {
@@ -260,6 +304,9 @@ namespace Aimmy2.AILogic
                     _benchmarks[name] = data;
                 }
 
+                long tick = Stopwatch.GetTimestamp();
+                TrimPerformance(tick);
+                _recentPerformance.Enqueue((tick, name, elapsedMs));
                 data.TotalTime += elapsedMs;
                 data.CallCount++;
                 data.MinTime = Math.Min(data.MinTime, elapsedMs);
@@ -405,7 +452,14 @@ namespace Aimmy2.AILogic
                 {
                     if (process != null)
                     {
-                        await process.WaitForExitAsync();
+                        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                        try { await process.WaitForExitAsync(timeout.Token); }
+                        catch (OperationCanceledException)
+                        {
+                            process.Kill(entireProcessTree: true);
+                            Log(LogLevel.Error, "Engine validation exceeded 45 seconds.");
+                            return false;
+                        }
                         return process.ExitCode == 0;
                     }
                 }
@@ -417,7 +471,7 @@ namespace Aimmy2.AILogic
             return false;
         }
 
-        public Task LoadModelAsync(string modelPath) => LoadModelAsync(new SessionOptions(), modelPath, Dictionary.toggleState["DirectML"]);
+        public Task LoadModelAsync(string modelPath) => LoadModelAsync(new SessionOptions(), modelPath, useDirectML: true);
 
         public async Task LoadModelAsync(SessionOptions sessionOptions, string modelPath, bool useDirectML)
         {
@@ -523,14 +577,13 @@ namespace Aimmy2.AILogic
                 }
                 else
                 {
-                    if (useDirectML) { sessionOptions.AppendExecutionProvider_DML(); }
-                    else { sessionOptions.AppendExecutionProvider_CPU(); }
+                    
 
                     InferenceSession newSession;
                     await Dictionary.ModelLoadSemaphore.WaitAsync();
                     try
                     {
-                        newSession = await Task.Run(() => new InferenceSession(modelPath, sessionOptions));
+                        newSession = await Task.Run(() => OnnxModelSessionFactory.Load(modelPath, RequestedProvider(useDirectML), GetSlotImageSize(1)));
                     }
                     finally
                     {
@@ -607,6 +660,8 @@ namespace Aimmy2.AILogic
                 return;
             }
 
+            finally { sessionOptions.Dispose(); }
+
             // Begin the loop
             if (!_isAiLoopRunning)
             {
@@ -622,134 +677,86 @@ namespace Aimmy2.AILogic
             return;
         }
 
+        private static string RequestedProvider(bool directML = true) =>
+            OnnxProviderPreference.Resolve(Dictionary.dropdownState, Dictionary.toggleState, directML);
+
+        public ModelMetadata? GetModelMetadata(int slot)
+        {
+            lock (_modelLock)
+            {
+                var session = slot == 2 ? _onnxModelSlot2 : _onnxModelSlot1;
+                return session != null ? OnnxModelSessionFactory.Metadata(session) : (slot == 2 ? _engineModelSlot2 : _engineModelSlot1)?.Metadata;
+            }
+        }
+
+        // UI polling must never wait behind a GPU inference or model load.
+        public bool TryGetModelMetadata(int slot, out ModelMetadata? metadata)
+        {
+            metadata = null;
+            if (!Monitor.TryEnter(_modelLock)) return false;
+            try { metadata = GetModelMetadata(slot); return true; }
+            finally { Monitor.Exit(_modelLock); }
+        }
+
+        public void ConfigureDimensions(int slot, int width, int height, int captureSize)
+        {
+            lock (_modelLock)
+            {
+                var session = slot == 2 ? _onnxModelSlot2 : _onnxModelSlot1;
+                if (session == null) throw new NotSupportedException("Chọn model ONNX. Engine TensorRT dùng profile lúc nạp engine.");
+                var metadata = OnnxModelSessionFactory.Metadata(session);
+                int oldWidth = metadata.Options.DynamicWidth, oldHeight = metadata.Options.DynamicHeight;
+                try
+                {
+                    if (!metadata.Dynamic && (width != metadata.Input.Shape[metadata.WidthAxis] || height != metadata.Input.Shape[metadata.HeightAxis]))
+                        throw new NotSupportedException("Input tĩnh: nhập đúng chiều rộng/cao hiển thị trong Model Inspector.");
+                    metadata.Options.DynamicWidth = width; metadata.Options.DynamicHeight = height;
+                    var size = metadata.ResolveSize(width);
+                    using var run = new RunOptions();
+                    OnnxModelSessionFactory.Run(session, new float[checked(size.Width * size.Height * 3)],
+                        new CaptureTransform(new Rectangle(0, 0, size.Width, size.Height), size.Width, size.Height, false), run, 1);
+                    string path = metadata.ModelPath + ".aimmy.json";
+                    if (File.Exists(path) && !File.Exists(path + ".bak")) File.Copy(path, path + ".bak", false);
+                    string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    try
+                    {
+                        File.WriteAllText(temporary, Newtonsoft.Json.JsonConvert.SerializeObject(metadata.Options, Newtonsoft.Json.Formatting.Indented));
+                        File.Move(temporary, path, true);
+                    }
+                    finally { if (File.Exists(temporary)) File.Delete(temporary); }
+                    if (slot == 1) _slot1ImageSize = size.Width; else _slot2ImageSize = size.Width;
+                    Dictionary.sliderSettings["Capture Size"] = captureSize;
+                    _allPredictions = null; _currentTarget = null; ResetStickyAimState();
+                    PublishSlotImageSize(slot, size.Width, metadata.Dynamic);
+                    FovSettings.Synchronize(IMAGE_SIZE);
+                    global::Class.SaveDictionary.WriteJSON(Dictionary.sliderSettings, Path.Combine(AppContext.BaseDirectory, "bin", "configs", "Default.cfg"));
+                }
+                catch { metadata.Options.DynamicWidth = oldWidth; metadata.Options.DynamicHeight = oldHeight; throw; }
+            }
+        }
+
         private bool ValidateOnnxShape(int slot, bool showNotification = true)
         {
-            var targetSession = (slot == 2) ? _onnxModelSlot2 : _onnxModelSlot1;
-            if (targetSession == null) return false;
-
-            var inputMetadata = targetSession.InputMetadata;
-            var outputMetadata = targetSession.OutputMetadata;
-
-            Log(LogLevel.Info, $"=== Model Metadata (Slot {slot}) ===");
-            Log(LogLevel.Info, "Input Metadata:");
-
-            bool isDynamic = false;
-            int fixedInputSize = 0;
-
-            foreach (var kvp in inputMetadata)
+            var session = slot == 2 ? _onnxModelSlot2 : _onnxModelSlot1;
+            if (session == null) return false;
+            try
             {
-                string dimensionsStr = string.Join("x", kvp.Value.Dimensions);
-                Log(LogLevel.Info, $"  Name: {kvp.Key}, Dimensions: {dimensionsStr}");
-
-                if (kvp.Value.Dimensions.Any(d => d == -1)) isDynamic = true;
-                else if (kvp.Value.Dimensions.Length == 4) fixedInputSize = kvp.Value.Dimensions[2];
-            }
-
-            Log(LogLevel.Info, "Output Metadata:");
-            foreach (var kvp in outputMetadata)
-            {
-                string dimensionsStr = string.Join("x", kvp.Value.Dimensions);
-                Log(LogLevel.Info, $"  Name: {kvp.Key}, Dimensions: {dimensionsStr}");
-            }
-
-            if (slot == 1) { _slot1IsDynamic = isDynamic; Slot1IsDynamic = isDynamic; }
-            else { _slot2IsDynamic = isDynamic; Slot2IsDynamic = isDynamic; }
-
-            if (ActiveSlot == slot) {
-                IsDynamicModel = isDynamic;
-                CurrentModelIsDynamic = isDynamic;
-                DynamicModelStatusChanged?.Invoke(isDynamic);
-            }
-
-            if (isDynamic)
-            {
-                PublishSlotImageSize(slot, slot == 1 ? _slot1ImageSize : _slot2ImageSize, true);
-                int detections = CalculateNumDetections(IMAGE_SIZE);
-                if (slot == 1) { _slot1NumDetections = detections; _slot1IsNmsFree = false; }
-                else { _slot2NumDetections = detections; _slot2IsNmsFree = false; }
-                
-                if (ActiveSlot == slot) {
-                    NUM_DETECTIONS = detections;
-                    IsNmsFreeModel = false;
-                    ImageSizeUpdated?.Invoke(IMAGE_SIZE);
-                    Log(LogLevel.Info, $"Loaded (Slot {slot}) Dynamic Standard model: {IMAGE_SIZE}x{IMAGE_SIZE}", showNotification, 3000);
-                }
-            }
-            else
-            {
-                if (slot == 1) { _slot1FixedSize = fixedInputSize; Slot1FixedSize = fixedInputSize; } 
-                else { _slot2FixedSize = fixedInputSize; Slot2FixedSize = fixedInputSize; }
-
-                var supportedSizes = new[] { "640", "512", "416", "320", "256", "160" };
-                var fixedSizeStr = fixedInputSize.ToString();
-
-                int currentSlotSize = (slot == 1) ? _slot1ImageSize : _slot2ImageSize;
-                if (fixedInputSize != currentSlotSize && supportedSizes.Contains(fixedSizeStr))
+                var metadata = OnnxModelSessionFactory.Metadata(session);
+                var size = metadata.ResolveSize(GetSlotImageSize(slot));
+                bool dynamic = metadata.Dynamic;
+                if (slot == 1) { _slot1ImageSize = size.Width; _slot1IsDynamic = dynamic; _slot1FixedSize = size.Width; _slot1IsNmsFree = true; _slot1NumDetections = 0; }
+                else { _slot2ImageSize = size.Width; _slot2IsDynamic = dynamic; _slot2FixedSize = size.Width; _slot2IsNmsFree = true; _slot2NumDetections = 0; }
+                PublishSlotImageSize(slot, size.Width, dynamic);
+                if (ActiveSlot == slot)
                 {
-                    Log(LogLevel.Warning, $"Fixed-size model (Slot {slot}) expects {fixedInputSize}x{fixedInputSize}. Forcing size adjustment.", showNotification, 3000);
-                    Dictionary.dropdownState[slot == 1 ? "Slot 1 Image Size" : "Slot 2 Image Size"] = fixedSizeStr;
-                    
-                    // Update internal field so we don't keep loop-resetting
-                    if (slot == 1) _slot1ImageSize = fixedInputSize; else _slot2ImageSize = fixedInputSize;
-
-                    Application.Current?.Dispatcher.BeginInvoke(() => {
-                        try {
-                            var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
-                            mainWindow?.SettingsMenuControlInstance?.UpdateImageSizeDropdown(fixedSizeStr, slot);
-                        } catch { }
-                    });
+                    IsDynamicModel = CurrentModelIsDynamic = dynamic;
+                    IsNmsFreeModel = true; NUM_DETECTIONS = 0;
+                    DynamicModelStatusChanged?.Invoke(dynamic);
                 }
-                else if (!supportedSizes.Contains(fixedSizeStr))
-                {
-                    Log(LogLevel.Error, $"Model (Slot {slot}) requires unsupported size {fixedInputSize}x{fixedInputSize}.", showNotification, 10000);
-                    return false;
-                }
-
-                PublishSlotImageSize(slot, fixedInputSize, false);
-                LoadClasses(slot);
-
-                var temp_num_classes = 1;
-                var targetDict = (slot == 2) ? _modelClassesSlot2 : _modelClassesSlot1;
-                temp_num_classes = targetDict.Count > 0 ? targetDict.Keys.Max() + 1 : 1;
-
-                int detections_v8 = CalculateNumDetections(fixedInputSize);
-                var shape_v8 = new int[] { 1, 4 + temp_num_classes, detections_v8 };
-                var shape_v10 = new int[] { 1, 300, 6 };
-
-                bool isV8 = outputMetadata.Values.All(m => m.Dimensions.SequenceEqual(shape_v8));
-                bool isV10 = outputMetadata.Values.All(m => m.Dimensions.SequenceEqual(shape_v10));
-
-                if (isV10)
-                {
-                    if (slot == 1) { _slot1NumDetections = 300; _slot1IsNmsFree = true; }
-                    else { _slot2NumDetections = 300; _slot2IsNmsFree = true; }
-                    Log(LogLevel.Info, $"Detected (Slot {slot}) NMS-Free Architecture.", false, 3000);
-                }
-                else if (isV8)
-                {
-                    if (slot == 1) { _slot1NumDetections = detections_v8; _slot1IsNmsFree = false; }
-                    else { _slot2NumDetections = detections_v8; _slot2IsNmsFree = false; }
-                }
-                else
-                {
-                    Log(LogLevel.Error, $"Output shape mismatch (Slot {slot}). Use YOLOv8 or YOLOv10/11/26 ONNX.", showNotification, 10000);
-                    return false;
-                }
-
-                if (ActiveSlot == slot) {
-                    NUM_DETECTIONS = (slot == 1) ? _slot1NumDetections : _slot2NumDetections;
-                    IsNmsFreeModel = (slot == 1) ? _slot1IsNmsFree : _slot2IsNmsFree;
-                }
-
-                bool nmsFree = (slot == 1) ? _slot1IsNmsFree : _slot2IsNmsFree;
-                Log(LogLevel.Info, $"Loaded (Slot {slot}) {(nmsFree ? "NMS-Free" : "Standard (NMS)")} model: {fixedInputSize}x{fixedInputSize}", showNotification, 2000);
+                Log(LogLevel.Info, $"Slot {slot}: {metadata.Backend}, {metadata.Input.DataType}, {size.Width} × {size.Height}, {(dynamic ? "kích thước động" : "kích thước cố định")}", showNotification);
+                return true;
             }
-
-            if (ActiveSlot == slot) {
-                CurrentModelIsDynamic = isDynamic;
-                DynamicModelStatusChanged?.Invoke(IsDynamicModel);
-            }
-            return true;
+            catch (Exception ex) { Log(LogLevel.Error, $"Model không tương thích: {ex.Message}", showNotification); return false; }
         }
 
         private void LoadClasses(int slot = 0)
@@ -1112,7 +1119,7 @@ namespace Aimmy2.AILogic
              }
              else
              {
-                 var sessionOptions = new SessionOptions
+                 using var sessionOptions = new SessionOptions
                  {
                      EnableCpuMemArena = true,
                      EnableMemoryPattern = false,
@@ -1126,14 +1133,8 @@ namespace Aimmy2.AILogic
                  await Dictionary.ModelLoadSemaphore.WaitAsync();
                  try
                  {
-                     // Try DirectML
-                     try {
-                         sessionOptions.AppendExecutionProvider_DML();
-                         newSession = await Task.Run(() => new InferenceSession(modelPath, sessionOptions));
-                     } catch {
-                         sessionOptions.AppendExecutionProvider_CPU();
-                         newSession = await Task.Run(() => new InferenceSession(modelPath, sessionOptions));
-                     }
+                     string provider = RequestedProvider();
+                     newSession = await Task.Run(() => OnnxModelSessionFactory.Load(modelPath, provider, GetSlotImageSize(2)));
                  }
                  finally
                  {
@@ -1299,17 +1300,12 @@ namespace Aimmy2.AILogic
         #region AI
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool ShouldPredict() =>
-            Dictionary.toggleState["Show Detected Player"] ||
-            Dictionary.toggleState["Constant AI Tracking"] ||
-            InputBindingManager.IsHoldingBinding("Aim Keybind") ||
-            InputBindingManager.IsHoldingBinding("Second Aim Keybind");
+        private static bool ShouldPredict() => AimProcessingDecisions.ShouldRunPrediction(
+            Dictionary.toggleState["Show Detected Player"], Dictionary.toggleState["Constant AI Tracking"],
+            InputBindingManager.IsHoldingBinding("Aim Keybind"), InputBindingManager.IsHoldingBinding("Second Aim Keybind"));
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool ShouldProcess() =>
-            Dictionary.toggleState["Aim Assist"] ||
-            Dictionary.toggleState["Show Detected Player"] ||
-            Dictionary.toggleState["Auto Trigger"];
+        private static bool ShouldProcess() => AimProcessingDecisions.ShouldProcessFrame(
+            Dictionary.toggleState["Aim Assist"], Dictionary.toggleState["Show Detected Player"], Dictionary.toggleState["Auto Trigger"]);
 
         private void AiLoop()
         {
@@ -1319,12 +1315,19 @@ namespace Aimmy2.AILogic
 
             while (_isAiLoopRunning)
             {
+                int fpsLimit = Dictionary.sliderSettings.TryGetValue("AI FPS Limit", out var fps) ? Math.Max(0, Convert.ToInt32(fps)) : 0;
+                if (fpsLimit > 0 && stopwatch.IsRunning)
+                {
+                    double remaining = 1000.0 / fpsLimit - stopwatch.Elapsed.TotalMilliseconds;
+                    if (remaining >= 1) Thread.Sleep((int)remaining);
+                }
                 // Check for pending size changes at the start of each iteration
                 lock (_sizeLock)
                 {
                     if (_sizeChangePending)
                     {
-                        // Skip this iteration to allow clean shutdown
+                        // Avoid a busy spin while shutdown is pending.
+                        Thread.Sleep(1);
                         continue;
                     }
                 }
@@ -1676,7 +1679,7 @@ namespace Aimmy2.AILogic
                 if (allPredsSnapshot != null && allPredsSnapshot.Count > 0)
                 {
                     // Apply NMS to remove overlapping boxes
-                    var filteredPredictions = ApplyNMS(allPredsSnapshot, 0.45f);
+                    var filteredPredictions = allPredsSnapshot; // ModelOutputAdapter already applied the correct postprocess once.
                     
                     var detectionList = new List<(string ClassName, double X, double Y, double Width, double Height, double Confidence)>();
                     
@@ -1721,6 +1724,8 @@ namespace Aimmy2.AILogic
 
         private void CalculateCoordinates(DetectedPlayerWindow DetectedPlayerOverlay, Prediction closestPrediction, float scaleX, float scaleY)
         {
+            // Legacy aim-response space: sensitivity profiles were calibrated with
+            // screen/capture gain. These are not the physical coordinates used by ESP.
             AIConf = closestPrediction.Confidence;
 
             if (Dictionary.toggleState["Aim Assist"] || Dictionary.DetectedPlayerOverlay != null)
@@ -1885,32 +1890,14 @@ namespace Aimmy2.AILogic
                 modelClasses = new Dictionary<int, string>(_modelClasses);
             }
 
-            if (Dictionary.dropdownState["Detection Area Type"] == "Closest to Mouse")
-            {
-                var mousePos = WinAPICaller.GetCursorPosition();
-
-                // Check if mouse is on the current display
-                if (DisplayManager.IsPointInCurrentDisplay(new System.Windows.Point(mousePos.X, mousePos.Y)))
-                {
-                    // Mouse is on current display, use its position
-                    targetX = mousePos.X;
-                    targetY = mousePos.Y;
-                }
-                else
-                {
-                    // Mouse is on different display, use center of current display
-                    targetX = DisplayManager.ScreenLeft + (DisplayManager.ScreenWidth / 2);
-                    targetY = DisplayManager.ScreenTop + (DisplayManager.ScreenHeight / 2);
-                }
-            }
-            else
-            {
-                // Center of current display
-                targetX = DisplayManager.ScreenLeft + (DisplayManager.ScreenWidth / 2);
-                targetY = DisplayManager.ScreenTop + (DisplayManager.ScreenHeight / 2);
-            }
-
-            Rectangle detectionBox = new(targetX - imageSize / 2, targetY - imageSize / 2, imageSize, imageSize); // Detection box dynamic size
+            var mouse = WinAPICaller.GetCursorPosition();
+            Rectangle detectionBox = CaptureTargetSelector.SelectDetectionBox(
+                Dictionary.dropdownState["Detection Area Type"], imageSize,
+                new Rectangle(DisplayManager.ScreenLeft, DisplayManager.ScreenTop, DisplayManager.ScreenWidth, DisplayManager.ScreenHeight),
+                new System.Drawing.Point(mouse.X, mouse.Y),
+                DisplayManager.IsPointInCurrentDisplay(new System.Windows.Point(mouse.X, mouse.Y)));
+            targetX = detectionBox.Left + detectionBox.Width / 2;
+            targetY = detectionBox.Top + detectionBox.Height / 2;
             _currentDetectionBox = detectionBox; // Store for overlay rendering
 
             Bitmap? frame = null;
@@ -1978,35 +1965,22 @@ namespace Aimmy2.AILogic
 
                         using (Benchmark("ModelInference"))
                         {
-                            float[] outputData = _engineModel.RunInference(_reusableInputArray);
-                            outputTensor = new DenseTensor<float>(outputData, _engineModel.OutputDims);
+                            outputTensor = _engineModel.RunDetections(_reusableInputArray, detectionBox,
+                                (float)Dictionary.sliderSettings[activeSlot == 2 ? "Slot 2 AI Minimum Confidence" : "AI Minimum Confidence"] / 100f);
                         }
                     }
                 }
                 else
                 {
-                    // Reuse tensor and inputs - recreate if size changed
-                    if (_reusableTensor == null || _reusableTensor.Dimensions[2] != imageSize || !ReferenceEquals(_tensorBackingArray, _reusableInputArray))
-                    {
-                        _reusableTensor = new DenseTensor<float>(_reusableInputArray, new int[] { 1, 3, imageSize, imageSize });
-                        _tensorBackingArray = _reusableInputArray;
-                        _reusableInputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("images", _reusableTensor) };
-                    }
-
-
                     lock (_modelLock)
                     {
-                        if (_onnxModel == null || _isDisposed || ActiveSlot != activeSlot || IMAGE_SIZE != imageSize ||
-                            NUM_DETECTIONS != numDetections || IsNmsFreeModel != isNmsFreeModel || NUM_CLASSES != numClasses)
-                        {
-                            return null;
-                        }
-
+                        if (_onnxModel == null || _isDisposed || ActiveSlot != activeSlot || IMAGE_SIZE != imageSize) return null;
+                        var metadata = OnnxModelSessionFactory.Metadata(_onnxModel);
+                        var size = metadata.ResolveSize(GetSlotImageSize(activeSlot));
+                        var transform = new CaptureTransform(detectionBox, size.Width, size.Height, metadata.Options.Letterbox);
                         using (Benchmark("ModelInference"))
-                        {
-                            results = _onnxModel.Run(_reusableInputs, outputNames, _modeloptions);
-                            outputTensor = results[0].AsTensor<float>();
-                        }
+                            outputTensor = OnnxModelSessionFactory.Run(_onnxModel, _reusableInputArray, transform, _modeloptions,
+                                (float)Dictionary.sliderSettings[activeSlot == 2 ? "Slot 2 AI Minimum Confidence" : "AI Minimum Confidence"] / 100f);
                     }
                 }
 
@@ -2029,7 +2003,7 @@ namespace Aimmy2.AILogic
                 {
                     // Get ALL predictions for ESP without FOV filtering
                     KDPredictions = PrepareKDTreeData(outputTensor, detectionBox, fovMinX, fovMaxX, fovMinY, fovMaxY,
-                        activeSlot, imageSize, numDetections, isNmsFreeModel, numClasses, modelClasses, false);
+                        activeSlot, imageSize, outputTensor.Dimensions[1], true, numClasses, modelClasses, false);
                     _allPredictions = KDPredictions; // Store all for overlay rendering
                 }
 
@@ -2246,8 +2220,8 @@ namespace Aimmy2.AILogic
             _consecutiveFramesWithoutTarget = 0;
 
             // Screen center (where user is aiming)
-            float screenCenterX = IMAGE_SIZE / 2f;
-            float screenCenterY = IMAGE_SIZE / 2f;
+            float screenCenterX = _currentDetectionBox.Left + IMAGE_SIZE / 2f;
+            float screenCenterY = _currentDetectionBox.Top + IMAGE_SIZE / 2f;
 
             // STEP 1: Find what the user is aiming at (closest to crosshair)
             Prediction? aimTarget = null;
@@ -2579,12 +2553,7 @@ namespace Aimmy2.AILogic
                     width = x_max - x_min;
                     height = y_max - y_min;
                     
-                    if (x_max <= 1.05f && y_max <= 1.05f) {
-                        x_center *= imageSize;
-                        y_center *= imageSize;
-                        width *= imageSize;
-                        height *= imageSize;
-                    }
+
                 }
                 else
                 {
@@ -2685,7 +2654,7 @@ namespace Aimmy2.AILogic
                 sortedPredictions.RemoveAt(0);
 
                 // Remove all predictions that overlap significantly with the best one
-                sortedPredictions.RemoveAll(p => CalculateIoU(best.Rectangle, p.Rectangle) > iouThreshold);
+                sortedPredictions.RemoveAll(p => p.ClassId == best.ClassId && CalculateIoU(best.Rectangle, p.Rectangle) > iouThreshold);
             }
 
             return result;

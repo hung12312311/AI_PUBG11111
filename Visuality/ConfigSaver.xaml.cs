@@ -37,6 +37,7 @@ namespace Visuality
         public ConfigSaver()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
 
             //Every .xaml with a border named "MainBorder" gets changed as long as this is visible, so double check!
             ThemeManager.TrackWindow(this);
@@ -100,7 +101,7 @@ namespace Visuality
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
             if (!File.Exists($"bin/configs/{ConfigNameTextbox.Text}.cfg") ||
-                MessageBox.Show("A config already exists with the same name, would you like to overwrite it?",
+                global::Other.LocalizedMessageBox.Show("A config already exists with the same name, would you like to overwrite it?",
                     $"{Title} - Configuration Saver", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 WriteJSON();

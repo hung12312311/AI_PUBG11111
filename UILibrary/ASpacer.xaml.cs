@@ -8,6 +8,7 @@
         public ASpacer()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
         }
     }
 }

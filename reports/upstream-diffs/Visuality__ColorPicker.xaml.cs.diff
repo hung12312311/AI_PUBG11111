@@ -1,0 +1,10 @@
+--- Custom/Visuality/ColorPicker.xaml.cs
+
++++ Upstream/Visuality/ColorPicker.xaml.cs
+
+@@ -1,4 +1,3 @@
+
+ using Aimmy2.Theme;
+-using System;
+ using System.Windows;
+ using System.Windows.Input;

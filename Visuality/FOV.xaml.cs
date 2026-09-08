@@ -1,4 +1,4 @@
-using Aimmy2.Class;
+﻿using Aimmy2.Class;
 using Aimmy2.Theme;
 using Aimmy2.UILibrary;
 using Class;
@@ -25,6 +25,7 @@ namespace Visuality
         public FOV()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
 
             // Subscribe to display changes early
             DisplayManager.DisplayChanged += OnDisplayChanged;

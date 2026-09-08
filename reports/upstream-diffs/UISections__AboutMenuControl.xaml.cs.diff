@@ -1,0 +1,30 @@
+--- Custom/UISections/AboutMenuControl.xaml.cs
+
++++ Upstream/UISections/AboutMenuControl.xaml.cs
+
+@@ -1,2 +1,4 @@
+
++using Aimmy2.Theme;
++using Other;
+ using System.Diagnostics;
+ using System.Net.Http;
+@@ -7,6 +9,4 @@
+
+ using System.Windows.Media.Imaging;
+ using System.Windows.Shapes;
+-using Aimmy2.Theme;
+-using Other;
+ 
+ namespace Aimmy2.Controls
+@@ -25,7 +25,7 @@
+
+         private static readonly (string name, string role, string? github)[] CoreTeam =
+         {
+-            ("Babyhamsta", "Logic AI", "Babyhamsta"),
+-            ("MarsQQ", "Thiết kế", "MarsInsanity"),
+-            ("Taylor", "Tối ưu hóa", "TaylorIsBlue")
++            ("Babyhamsta", "AI Logic", "Babyhamsta"),
++            ("MarsQQ", "Design", "MarsInsanity"),
++            ("Taylor", "Optimization", "TaylorIsBlue")
+         };
+ 

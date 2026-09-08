@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -27,6 +27,7 @@ namespace Visuality
         public CrosshairWindow()
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
 
             // Subscribe to display changes
             DisplayManager.DisplayChanged += OnDisplayChanged;

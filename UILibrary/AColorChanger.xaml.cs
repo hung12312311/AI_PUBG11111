@@ -8,6 +8,7 @@
         public AColorChanger(string title)
         {
             InitializeComponent();
+            Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
             ColorChangerTitle.Content = title;
         }
     }
